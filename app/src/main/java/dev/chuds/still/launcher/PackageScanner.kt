@@ -50,7 +50,7 @@ class PackageScanner(
             }
             .distinctBy { it.componentKey }
             .sortedWith(
-                compareBy<LaunchableApp>(String.CASE_INSENSITIVE_ORDER) { it.label }
+                compareBy(String.CASE_INSENSITIVE_ORDER, LaunchableApp::label)
                     .thenBy { it.packageName }
                     .thenBy { it.className },
             )
