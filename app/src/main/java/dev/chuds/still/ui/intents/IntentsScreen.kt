@@ -1,5 +1,7 @@
 package dev.chuds.still.ui.intents
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,10 +20,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.chuds.still.data.IntentEntry
+import dev.chuds.still.data.IntentJournalExporter
 import dev.chuds.still.ui.components.StillDivider
 import dev.chuds.still.ui.components.StillMenuItem
 import dev.chuds.still.ui.theme.StillColors
@@ -60,6 +65,23 @@ fun IntentsScreen(
     val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d", Locale.getDefault()) }
 
     val grouped = remember(entries, today) { groupEntries(entries, zone, today) }
+
+    val context = LocalContext.current
+    val currentEntries by rememberUpdatedState(entries)
+    val markdownLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/markdown"),
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        val content = IntentJournalExporter.formatMarkdown(currentEntries, zone, Instant.now())
+        IntentJournalExporter.writeToUri(context, uri, content)
+    }
+    val textLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/plain"),
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        val content = IntentJournalExporter.formatPlainText(currentEntries, zone, Instant.now())
+        IntentJournalExporter.writeToUri(context, uri, content)
+    }
 
     LazyColumn(
         modifier = modifier
@@ -129,6 +151,18 @@ fun IntentsScreen(
         item {
             StillDivider()
             Spacer(modifier = Modifier.height(8.dp))
+            StillMenuItem(
+                title = "export markdown",
+                style = StillTypography.SecondaryMenu,
+                enabled = entries.isNotEmpty(),
+                onClick = { markdownLauncher.launch("still-intents.md") },
+            )
+            StillMenuItem(
+                title = "export text",
+                style = StillTypography.SecondaryMenu,
+                enabled = entries.isNotEmpty(),
+                onClick = { textLauncher.launch("still-intents.txt") },
+            )
             StillMenuItem(
                 title = if (pendingClear) "tap again to confirm" else "clear",
                 subtitle = if (pendingClear) "this clears every entry" else null,
