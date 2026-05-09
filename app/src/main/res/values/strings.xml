@@ -1,0 +1,4 @@
+<!-- App strings. Keep the launcher name short and quiet. -->
+<resources>
+    <string name="app_name">Still</string>
+</resources>
