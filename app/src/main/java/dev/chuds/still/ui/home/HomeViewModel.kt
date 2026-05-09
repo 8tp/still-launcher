@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import dev.chuds.still.data.AppRepository
-import dev.chuds.still.data.AppSlot
+import dev.chuds.still.data.HomeSlot
 import dev.chuds.still.data.LaunchableApp
 import dev.chuds.still.data.LauncherSettings
 import dev.chuds.still.launcher.AppLauncher
@@ -15,21 +15,22 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * UI state for the home, settings, picker, and hidden all-apps screens.
+ * Resolved view of a single home slot — its persisted config and the app it currently points at.
  */
+data class ResolvedSlot(
+    val slot: HomeSlot,
+    val app: LaunchableApp?,
+) {
+    val isLaunchable: Boolean get() = app != null
+    val displayLabel: String? get() = slot.resolvedLabel(app)
+}
+
 data class HomeUiState(
     val apps: List<LaunchableApp> = emptyList(),
     val settings: LauncherSettings = LauncherSettings(),
-    val resolvedSlots: Map<AppSlot, LaunchableApp> = emptyMap(),
-) {
-    fun appFor(slot: AppSlot): LaunchableApp? = resolvedSlots[slot]
-}
+    val resolvedSlots: List<ResolvedSlot> = emptyList(),
+)
 
-/**
- * ViewModel for launcher state and app launching actions.
- *
- * It deliberately contains no network work and no analytics calls.
- */
 class HomeViewModel(
     private val appRepository: AppRepository,
     private val appLauncher: AppLauncher,
@@ -38,18 +39,12 @@ class HomeViewModel(
         appRepository.launchableApps,
         appRepository.settings,
     ) { apps, settings ->
-        val resolvedSlots = buildMap {
-            AppSlot.entries.forEach { slot ->
-                appRepository.resolveSlot(slot = slot, settings = settings, apps = apps)?.let { app ->
-                    put(slot, app)
-                }
-            }
-        }
-
         HomeUiState(
             apps = apps,
             settings = settings,
-            resolvedSlots = resolvedSlots,
+            resolvedSlots = settings.slots.map { slot ->
+                ResolvedSlot(slot = slot, app = appRepository.appForSlot(slot, apps))
+            },
         )
     }.stateIn(
         scope = viewModelScope,
@@ -57,27 +52,30 @@ class HomeViewModel(
         initialValue = HomeUiState(),
     )
 
-    fun refreshApps() {
-        appRepository.refreshApps()
-    }
+    fun refreshApps() = appRepository.refreshApps()
 
-    fun launchSlot(slot: AppSlot): Boolean {
-        val app = uiState.value.appFor(slot) ?: return false
+    fun launchSlot(index: Int): Boolean {
+        val resolved = uiState.value.resolvedSlots.getOrNull(index) ?: return false
+        val app = resolved.app ?: return false
         return appLauncher.launch(app)
     }
 
     fun launchApp(app: LaunchableApp): Boolean = appLauncher.launch(app)
 
-    fun setAppForSlot(slot: AppSlot, app: LaunchableApp) {
-        viewModelScope.launch {
-            appRepository.setAppForSlot(slot, app)
-        }
+    fun setSlotApp(index: Int, app: LaunchableApp) {
+        viewModelScope.launch { appRepository.setSlotApp(index, app) }
     }
 
-    fun clearAppForSlot(slot: AppSlot) {
-        viewModelScope.launch {
-            appRepository.clearAppForSlot(slot)
-        }
+    fun setSlotLabel(index: Int, label: String?) {
+        viewModelScope.launch { appRepository.setSlotLabel(index, label) }
+    }
+
+    fun setSlotFriction(index: Int, useFriction: Boolean) {
+        viewModelScope.launch { appRepository.setSlotFriction(index, useFriction) }
+    }
+
+    fun clearSlot(index: Int) {
+        viewModelScope.launch { appRepository.clearSlot(index) }
     }
 
     companion object {

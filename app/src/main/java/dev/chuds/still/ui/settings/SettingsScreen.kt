@@ -11,7 +11,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import dev.chuds.still.data.AppSlot
 import dev.chuds.still.ui.components.StillDivider
 import dev.chuds.still.ui.components.StillMenuItem
 import dev.chuds.still.ui.home.HomeUiState
@@ -19,12 +18,12 @@ import dev.chuds.still.ui.theme.StillColors
 import dev.chuds.still.ui.theme.StillTypography
 
 /**
- * Local settings screen for assigning installed apps to Still's seven home slots.
+ * Lists every slot. Tapping a slot opens its edit surface (if filled) or app picker (if empty).
  */
 @Composable
 fun SettingsScreen(
     uiState: HomeUiState,
-    onChooseSlot: (AppSlot) -> Unit,
+    onChooseSlot: (Int) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -36,7 +35,7 @@ fun SettingsScreen(
             .padding(horizontal = 34.dp, vertical = 28.dp),
     ) {
         Text(
-            text = "Still settings",
+            text = "still settings",
             style = StillTypography.Kicker,
             color = StillColors.Gray,
         )
@@ -44,20 +43,29 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(34.dp))
 
         Text(
-            text = "Choose what each word opens.",
+            text = "Each slot opens an app you choose.",
             style = StillTypography.Date,
             color = StillColors.MutedWhite,
         )
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        AppSlot.entries.forEach { slot ->
-            val app = uiState.appFor(slot)
+        uiState.resolvedSlots.forEach { resolved ->
+            val title = resolved.displayLabel ?: "slot ${resolved.slot.index + 1}"
+            val isFilled = resolved.isLaunchable
+            val titleColor = if (isFilled) StillColors.SoftWhite else StillColors.DimGray
+            val subtitle = when {
+                !resolved.slot.isSet -> "not set"
+                !isFilled -> "missing"
+                resolved.slot.useFriction -> "use intentionally — ${resolved.app?.label.orEmpty()}"
+                else -> resolved.app?.label
+            }
             StillMenuItem(
-                title = slot.displayName,
-                subtitle = app?.label ?: "not set",
+                title = title,
+                subtitle = subtitle,
                 style = StillTypography.SecondaryMenu,
-                onClick = { onChooseSlot(slot) },
+                titleColor = titleColor,
+                onClick = { onChooseSlot(resolved.slot.index) },
             )
         }
 
@@ -66,7 +74,7 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(14.dp))
 
         StillMenuItem(
-            title = "Back",
+            title = "back",
             style = StillTypography.SecondaryMenu,
             onClick = onBack,
         )

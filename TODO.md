@@ -6,13 +6,11 @@
    - Verify `MainActivity` resolves for `ACTION_MAIN` + `CATEGORY_HOME`.
    - Verify no INTERNET permission is declared.
 
-2. **Add default app mapping quality pass for GrapheneOS**
-   - Test default package labels on Pixel 8a / Pixel 9a.
-   - Improve local fallback heuristics for Vanadium, AOSP Dialer, AOSP Messaging, Camera, and Settings.
+2. ~~Add default app mapping quality pass for GrapheneOS~~ — **dropped.** Slots are now anonymous and start empty; first-boot heuristics no longer apply.
 
 3. **Handle uninstalled mapped apps gracefully**
-   - Current behavior falls back to heuristics if stored component is missing.
-   - Add UI copy in settings showing “missing” vs “not set”.
+   - When the stored ComponentName no longer resolves, the home now shows the slot as `missing` (subtitle).
+   - Still missing: a one-tap "find replacement" affordance from the edit sheet.
 
 4. **Add empty-state copy for app picker**
    - Show a calm explanation if no launchable apps are visible.
@@ -49,9 +47,9 @@
     - No fuzzy dopamine ranking.
     - No telemetry.
 
-11. **Add per-slot friction rules**
-    - Browser is the MVP friction slot.
-    - Later: Maps, Messages, custom delay, or confirm phrase.
+11. **Per-slot friction — extend beyond the binary toggle**
+    - Each slot now has a `useFriction: Boolean` flag toggled from the long-press edit sheet; tapping a friction-gated slot routes through `FrictionScreen`.
+    - Future: typed-intent gates (Bet 1 in the strategy memo), per-slot duration windows, or scheduled access (only between 9–5).
 
 12. **Add profile-aware app listing**
     - Investigate `LauncherApps` for managed/work profile support.

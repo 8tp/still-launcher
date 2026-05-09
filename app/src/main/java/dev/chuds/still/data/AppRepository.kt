@@ -7,7 +7,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Small repository that combines installed-app scanning with local user settings.
+ * Combines installed-app scanning with the user's slot configuration.
+ *
+ * No first-boot heuristics. New installs see seven empty slots; the user fills them.
  */
 class AppRepository(
     private val packageScanner: PackageScanner,
@@ -22,51 +24,18 @@ class AppRepository(
         _launchableApps.value = packageScanner.loadLaunchableApps()
     }
 
-    suspend fun setAppForSlot(slot: AppSlot, app: LaunchableApp) {
-        preferencesRepository.setAppForSlot(slot, app)
-    }
+    fun appForSlot(slot: HomeSlot, apps: List<LaunchableApp>): LaunchableApp? =
+        if (slot.isSet) apps.firstOrNull(slot::matches) else null
 
-    suspend fun clearAppForSlot(slot: AppSlot) {
-        preferencesRepository.clearAppForSlot(slot)
-    }
+    suspend fun setSlotApp(index: Int, app: LaunchableApp) =
+        preferencesRepository.setSlotApp(index, app)
 
-    /**
-     * Resolves a slot to the user's explicit selection, falling back to simple local heuristics.
-     *
-     * The heuristics are intentionally conservative and exist only to make first boot pleasant.
-     * Users can override every slot from Still settings.
-     */
-    fun resolveSlot(
-        slot: AppSlot,
-        settings: LauncherSettings,
-        apps: List<LaunchableApp>,
-    ): LaunchableApp? {
-        val storedSelection = settings.selectionFor(slot)
-        if (storedSelection.isSet) {
-            apps.firstOrNull(storedSelection::matches)?.let { return it }
-        }
+    suspend fun setSlotLabel(index: Int, label: String?) =
+        preferencesRepository.setSlotLabel(index, label)
 
-        return suggestedApp(slot = slot, apps = apps)
-    }
+    suspend fun setSlotFriction(index: Int, useFriction: Boolean) =
+        preferencesRepository.setSlotFriction(index, useFriction)
 
-    private fun suggestedApp(slot: AppSlot, apps: List<LaunchableApp>): LaunchableApp? {
-        val tokens = when (slot) {
-            AppSlot.PHONE -> listOf("phone", "dialer", "telephone")
-            AppSlot.MESSAGES -> listOf("messages", "messaging", "sms")
-            AppSlot.SIGNAL -> listOf("signal")
-            AppSlot.MAPS -> listOf("maps", "map", "organic maps", "osmand")
-            AppSlot.BROWSER -> listOf("browser", "vanadium", "firefox", "mull", "chromium", "chrome", "brave")
-            AppSlot.CAMERA -> listOf("camera")
-            AppSlot.SETTINGS -> listOf("settings")
-        }
-
-        return tokens.asSequence()
-            .mapNotNull { token ->
-                apps.firstOrNull { app ->
-                    app.label.contains(token, ignoreCase = true) ||
-                        app.packageName.contains(token, ignoreCase = true)
-                }
-            }
-            .firstOrNull()
-    }
+    suspend fun clearSlot(index: Int) =
+        preferencesRepository.clearSlot(index)
 }

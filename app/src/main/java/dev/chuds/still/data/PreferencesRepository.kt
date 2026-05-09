@@ -3,6 +3,7 @@ package dev.chuds.still.data
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -12,20 +13,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 
-/**
- * DataStore singleton for Still settings.
- *
- * The top-level delegate is the recommended way to keep Preferences DataStore as a singleton
- * for the process. Everything remains local to the device.
- */
 private val Context.stillPreferencesDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "still_settings",
 )
 
 /**
- * Reads and writes local slot mappings.
- *
- * No remote sync, no telemetry, no analytics, no network.
+ * Reads and writes local slot state. No remote sync, no telemetry, no analytics, no network.
  */
 class PreferencesRepository(
     private val context: Context,
@@ -40,32 +33,64 @@ class PreferencesRepository(
         }
         .map { preferences ->
             LauncherSettings(
-                selections = AppSlot.entries.associateWith { slot ->
-                    AppSelection(
-                        packageName = preferences[packageKey(slot)] ?: "",
-                        className = preferences[classKey(slot)] ?: "",
+                slots = (0 until SLOT_COUNT).map { index ->
+                    HomeSlot(
+                        index = index,
+                        packageName = preferences[packageKey(index)] ?: "",
+                        className = preferences[classKey(index)] ?: "",
+                        customLabel = preferences[labelKey(index)],
+                        useFriction = preferences[frictionKey(index)] ?: false,
                     )
                 },
             )
         }
 
-    suspend fun setAppForSlot(slot: AppSlot, app: LaunchableApp) {
+    suspend fun setSlotApp(index: Int, app: LaunchableApp) {
         context.stillPreferencesDataStore.edit { preferences ->
-            preferences[packageKey(slot)] = app.packageName
-            preferences[classKey(slot)] = app.className
+            preferences[packageKey(index)] = app.packageName
+            preferences[classKey(index)] = app.className
         }
     }
 
-    suspend fun clearAppForSlot(slot: AppSlot) {
+    suspend fun setSlotLabel(index: Int, label: String?) {
         context.stillPreferencesDataStore.edit { preferences ->
-            preferences.remove(packageKey(slot))
-            preferences.remove(classKey(slot))
+            val trimmed = label?.trim()
+            if (trimmed.isNullOrEmpty()) {
+                preferences.remove(labelKey(index))
+            } else {
+                preferences[labelKey(index)] = trimmed
+            }
         }
     }
 
-    private fun packageKey(slot: AppSlot): Preferences.Key<String> =
-        stringPreferencesKey("${slot.preferencePrefix}_package")
+    suspend fun setSlotFriction(index: Int, useFriction: Boolean) {
+        context.stillPreferencesDataStore.edit { preferences ->
+            if (useFriction) {
+                preferences[frictionKey(index)] = true
+            } else {
+                preferences.remove(frictionKey(index))
+            }
+        }
+    }
 
-    private fun classKey(slot: AppSlot): Preferences.Key<String> =
-        stringPreferencesKey("${slot.preferencePrefix}_class")
+    suspend fun clearSlot(index: Int) {
+        context.stillPreferencesDataStore.edit { preferences ->
+            preferences.remove(packageKey(index))
+            preferences.remove(classKey(index))
+            preferences.remove(labelKey(index))
+            preferences.remove(frictionKey(index))
+        }
+    }
+
+    private fun packageKey(index: Int): Preferences.Key<String> =
+        stringPreferencesKey("slot_${index}_package")
+
+    private fun classKey(index: Int): Preferences.Key<String> =
+        stringPreferencesKey("slot_${index}_class")
+
+    private fun labelKey(index: Int): Preferences.Key<String> =
+        stringPreferencesKey("slot_${index}_label")
+
+    private fun frictionKey(index: Int): Preferences.Key<Boolean> =
+        booleanPreferencesKey("slot_${index}_friction")
 }

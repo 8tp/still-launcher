@@ -19,8 +19,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import dev.chuds.still.data.AppSlot
-import dev.chuds.still.ui.components.StillDivider
 import dev.chuds.still.ui.components.StillMenuItem
 import dev.chuds.still.ui.theme.StillColors
 import dev.chuds.still.ui.theme.StillTypography
@@ -29,35 +27,25 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.delay
 
-private val PrimarySlots = listOf(
-    AppSlot.PHONE,
-    AppSlot.MESSAGES,
-    AppSlot.SIGNAL,
-    AppSlot.MAPS,
-    AppSlot.BROWSER,
-)
-
-private val SecondarySlots = listOf(
-    AppSlot.CAMERA,
-    AppSlot.SETTINGS,
-)
-
 /**
- * Main Still home screen.
+ * The home surface.
  *
- * The screen is intentionally sparse: title, live clock/date, seven text actions, and one hint.
- * Long-pressing the background opens hidden tools/all apps.
+ * No wordmark. Clock + date, then up to seven user-defined slots. Empty slots show a dim
+ * `add app` placeholder. Tap empty → app picker. Long-press filled → edit sheet. Long-press
+ * background → all apps.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     uiState: HomeUiState,
-    onLaunchSlot: (AppSlot) -> Unit,
-    onOpenHiddenTools: () -> Unit,
+    onLaunchSlot: (Int) -> Unit,
+    onAddSlotApp: (Int) -> Unit,
+    onEditSlot: (Int) -> Unit,
+    onOpenAllApps: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var now by remember { mutableStateOf(LocalDateTime.now()) }
-    val interactionSource = remember { MutableInteractionSource() }
+    val backgroundInteractionSource = remember { MutableInteractionSource() }
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -74,22 +62,14 @@ fun HomeScreen(
             .fillMaxSize()
             .background(StillColors.OledBlack)
             .combinedClickable(
-                interactionSource = interactionSource,
+                interactionSource = backgroundInteractionSource,
                 indication = null,
                 onClick = {},
-                onLongClick = onOpenHiddenTools,
+                onLongClick = onOpenAllApps,
             )
             .systemBarsPadding()
             .padding(horizontal = 34.dp, vertical = 28.dp),
     ) {
-        Text(
-            text = "Still",
-            style = StillTypography.Kicker,
-            color = StillColors.Gray,
-        )
-
-        Spacer(modifier = Modifier.height(52.dp))
-
         Text(
             text = now.format(clockFormatter),
             style = StillTypography.Clock,
@@ -104,33 +84,43 @@ fun HomeScreen(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        PrimarySlots.forEach { slot ->
-            StillMenuItem(
-                title = slot.displayName,
-                subtitle = if (uiState.appFor(slot) == null) "not set" else null,
-                onClick = { onLaunchSlot(slot) },
-            )
-        }
+        uiState.resolvedSlots.forEach { resolved ->
+            val isFilled = resolved.isLaunchable
+            val title = resolved.displayLabel ?: "add app"
+            val titleColor = if (isFilled) StillColors.SoftWhite else StillColors.DimGray
+            val subtitle = when {
+                resolved.slot.isSet && !isFilled -> "missing"
+                resolved.slot.useFriction && isFilled -> "use intentionally"
+                else -> null
+            }
 
-        Spacer(modifier = Modifier.height(26.dp))
-        StillDivider()
-        Spacer(modifier = Modifier.height(18.dp))
-
-        SecondarySlots.forEach { slot ->
             StillMenuItem(
-                title = slot.displayName,
-                subtitle = if (uiState.appFor(slot) == null) "not set" else null,
-                style = StillTypography.SecondaryMenu,
-                onClick = { onLaunchSlot(slot) },
+                title = title,
+                subtitle = subtitle,
+                titleColor = titleColor,
+                onClick = {
+                    if (isFilled) {
+                        onLaunchSlot(resolved.slot.index)
+                    } else {
+                        onAddSlotApp(resolved.slot.index)
+                    }
+                },
+                onLongClick = if (isFilled) {
+                    { onEditSlot(resolved.slot.index) }
+                } else {
+                    null
+                },
             )
         }
 
         Spacer(modifier = Modifier.weight(1f))
 
         Text(
-            text = "Long press for all apps",
+            text = "long press for all apps",
             style = StillTypography.Caption,
             color = StillColors.DimGray,
         )
+
+        Spacer(modifier = Modifier.height(4.dp))
     }
 }

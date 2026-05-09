@@ -6,7 +6,7 @@
 
 <br>
 
-<img src="docs/screenshots/home.png" width="230" alt="Still home — clock, date, seven words">&nbsp;<img src="docs/screenshots/all-apps.png" width="230" alt="Still all apps — alphabetical list with package names">&nbsp;<img src="docs/screenshots/friction.png" width="230" alt="Still browser friction — Use this intentionally">
+<img src="docs/screenshots/home.png" width="230" alt="Still home — clock, date, and a vertical list of user-named slots">&nbsp;<img src="docs/screenshots/edit.png" width="230" alt="Slot edit surface — rename, replace app, use intentionally toggle, remove">&nbsp;<img src="docs/screenshots/friction.png" width="230" alt="Use this intentionally — Open or Cancel">
 
 <br>
 
@@ -20,10 +20,10 @@ It declares no internet permission. It ships no analytics. It depends on neither
 
 ## What Still does
 
-- Replaces the home screen with a clock, a date, and seven words — Phone, Messages, Signal, Maps, Browser, Camera, Settings.
-- Each word opens an app you choose. Mappings persist locally in Preferences DataStore.
-- The Browser word always opens an intentional-friction screen first — *Use this intentionally*. Open or Cancel.
-- A long press anywhere on the home background reveals a hidden all-apps list and Still's local settings.
+- Replaces the home screen with a clock, a date, and **up to seven user-defined slots**.
+- Each slot opens an app you choose, with a label you choose. Mappings persist locally in Preferences DataStore.
+- Any slot can be marked **use intentionally** — tapping it opens a friction screen (*Use this intentionally. Open or Cancel.*) before launching. The browser is no longer privileged; the gate generalizes to any slot you want to make harder to reach.
+- Tap an empty slot to assign an app. Long-press a filled slot to rename, replace, toggle the friction flag, or remove. Long-press the home background to open the hidden all-apps list and settings.
 
 ## What Still refuses to do
 
@@ -31,7 +31,7 @@ It declares no internet permission. It ships no analytics. It depends on neither
 - No `QUERY_ALL_PACKAGES`. Package visibility is scoped via `<queries>` to apps that expose a launchable activity.
 - No analytics, no telemetry, no Firebase, no Google Play Services, no ads.
 - No cloud backup of settings — `data_extraction_rules.xml` excludes every domain.
-- No icons on the home. No widgets. No default app drawer. No search. No notification listener. No accessibility service.
+- No icons on the home. No widgets. No default app drawer. No search. No notification listener. No accessibility service. No `+` buttons. No branding on the home screen.
 
 ## Privacy posture, in code
 
@@ -49,22 +49,25 @@ MainActivity
     ├── HomeViewModel
     │   ├── AppRepository
     │   │   ├── PackageScanner     ACTION_MAIN + CATEGORY_LAUNCHER, scoped
-    │   │   └── PreferencesRepo    Preferences DataStore
+    │   │   └── PreferencesRepo    Preferences DataStore (slot index → app + label + friction)
     │   └── AppLauncher            explicit component launches only
     └── Compose surfaces
-        ├── HomeScreen             clock, date, seven words
-        ├── AllAppsScreen          revealed by long-press
-        ├── SettingsScreen         map words to installed apps
+        ├── HomeScreen             clock, date, up to seven slots
+        ├── SlotEditScreen         long-press a filled slot
+        ├── SlotRenameScreen       custom labels per slot
         ├── AppPickerScreen        list of launchable apps
+        ├── AllAppsScreen          revealed by long-press on background
+        ├── SettingsScreen         all slots in one list
         └── FrictionScreen         "Use this intentionally."
 ```
 
-Kotlin, Jetpack Compose, AGP 9, Gradle Kotlin DSL. Navigation Compose is intentionally avoided — a small sealed-class router lives in `StillApp.kt` to keep the dependency graph thin.
+Kotlin, Jetpack Compose, AGP 9, Gradle Kotlin DSL. Slots are anonymous indices `0..6` — there is no enum mapping to specific app types. Navigation Compose is intentionally avoided; a small sealed-class router lives in `StillApp.kt`.
 
 ## Design language
 
 - OLED black background. Soft white primary text. Gray secondary text. Hairline dividers.
 - Serif for the clock. Sans-serif for menu items. Monospace for the kicker and captions.
+- Lowercase for verbs (`add app`, `rename`, `back`). Title case only for app labels — those belong to the apps.
 - No ripple. Fade-only transitions. No bouncy motion, no colorful accents.
 - System fonts in the MVP. Open-source fonts can be dropped into `app/src/main/res/font/` and wired through `StillTypography.kt`.
 
@@ -87,11 +90,11 @@ adb shell cmd package set-home-activity dev.chuds.still/.MainActivity
 
 ## Notes for GrapheneOS
 
-Still depends on no part of Google Play Services, so it runs cleanly on a fresh GrapheneOS profile. Some default-slot heuristics may resolve to nothing on first boot — long-press the home background, open **Still settings**, and map each word to the installed app you want.
+Still depends on no part of Google Play Services, so it runs cleanly on a fresh GrapheneOS profile. There are no first-boot heuristics — every slot starts empty. Long-press the home background to open the hidden all-apps list, then either tap an empty slot directly or open settings to map every slot at once.
 
 ## Status
 
-MVP. Builds against AGP 9.2.1 / Kotlin 2.3.21 / `compileSdk 36`. Verified end-to-end on a Pixel 8a Android 36 AOSP emulator: HOME-intent resolution, default-Home behavior, slot heuristics, tap-to-launch, long-press → all apps, the browser friction gate. Not yet daily-driven on hardware. The screenshots above are real, not mockups. Planned work lives in [`TODO.md`](TODO.md).
+MVP. Builds against AGP 9.2.1 / Kotlin 2.3.21 / `compileSdk 36`. Verified end-to-end on a Pixel 8a Android 36 AOSP emulator: HOME-intent resolution, default-Home behavior, slot model, custom labels, per-slot friction gate, tap-to-launch, long-press → all apps. Not yet daily-driven on hardware. The screenshots above are real, not mockups. Planned work lives in [`TODO.md`](TODO.md).
 
 ## License
 

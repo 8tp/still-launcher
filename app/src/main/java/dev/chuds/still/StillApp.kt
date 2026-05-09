@@ -10,22 +10,24 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.chuds.still.data.AppRepository
-import dev.chuds.still.data.AppSlot
 import dev.chuds.still.data.PreferencesRepository
 import dev.chuds.still.launcher.AppLauncher
 import dev.chuds.still.launcher.PackageScanner
 import dev.chuds.still.ui.friction.FrictionScreen
 import dev.chuds.still.ui.home.HomeScreen
 import dev.chuds.still.ui.home.HomeViewModel
+import dev.chuds.still.ui.home.SlotEditScreen
+import dev.chuds.still.ui.home.SlotRenameScreen
 import dev.chuds.still.ui.settings.AllAppsScreen
 import dev.chuds.still.ui.settings.AppPickerScreen
 import dev.chuds.still.ui.settings.SettingsScreen
 
 /**
- * Top-level Compose application shell.
+ * Top-level Compose application shell with a hand-rolled router.
  *
- * This file owns lightweight in-memory navigation. Navigation Compose is intentionally avoided
- * in the MVP to keep the launcher small and dependency-light.
+ * Slots are anonymous indices (0..SLOT_COUNT-1). Each slot stores its app, an optional custom
+ * label, and a friction flag. The router carries a `returnTo` hint so flows started from
+ * Settings unwind to Settings rather than Home.
  */
 @Composable
 fun StillApp() {
@@ -54,17 +56,26 @@ fun StillApp() {
         route = route.backTarget()
     }
 
+    fun launchSlot(slotIndex: Int) {
+        val resolved = uiState.resolvedSlots.getOrNull(slotIndex)
+        when {
+            resolved == null -> Unit
+            resolved.slot.useFriction && resolved.isLaunchable -> {
+                route = StillRoute.Friction(slotIndex)
+            }
+            !homeViewModel.launchSlot(slotIndex) -> {
+                route = StillRoute.AppPicker(slotIndex, ReturnTo.Home)
+            }
+        }
+    }
+
     when (val currentRoute = route) {
         StillRoute.Home -> HomeScreen(
             uiState = uiState,
-            onLaunchSlot = { slot ->
-                if (slot == AppSlot.BROWSER) {
-                    route = StillRoute.BrowserFriction
-                } else if (!homeViewModel.launchSlot(slot)) {
-                    route = StillRoute.AppPicker(slot = slot, returnHome = true)
-                }
-            },
-            onOpenHiddenTools = {
+            onLaunchSlot = ::launchSlot,
+            onAddSlotApp = { index -> route = StillRoute.AppPicker(index, ReturnTo.Home) },
+            onEditSlot = { index -> route = StillRoute.SlotEdit(index, ReturnTo.Home) },
+            onOpenAllApps = {
                 homeViewModel.refreshApps()
                 route = StillRoute.AllApps
             },
@@ -83,55 +94,115 @@ fun StillApp() {
 
         StillRoute.Settings -> SettingsScreen(
             uiState = uiState,
-            onChooseSlot = { slot -> route = StillRoute.AppPicker(slot = slot, returnHome = false) },
+            onChooseSlot = { index ->
+                val resolved = uiState.resolvedSlots.getOrNull(index)
+                route = if (resolved?.isLaunchable == true) {
+                    StillRoute.SlotEdit(index, ReturnTo.Settings)
+                } else {
+                    StillRoute.AppPicker(index, ReturnTo.Settings)
+                }
+            },
             onBack = { route = StillRoute.AllApps },
         )
 
         is StillRoute.AppPicker -> AppPickerScreen(
-            slot = currentRoute.slot,
+            slotIndex = currentRoute.slotIndex,
             apps = uiState.apps,
-            selectedApp = uiState.appFor(currentRoute.slot),
+            selectedApp = uiState.resolvedSlots.getOrNull(currentRoute.slotIndex)?.app,
             onAppSelected = { app ->
-                homeViewModel.setAppForSlot(currentRoute.slot, app)
-                route = if (currentRoute.returnHome) StillRoute.Home else StillRoute.Settings
+                homeViewModel.setSlotApp(currentRoute.slotIndex, app)
+                route = currentRoute.returnTo.asRoute()
             },
-            onClear = {
-                homeViewModel.clearAppForSlot(currentRoute.slot)
-                route = if (currentRoute.returnHome) StillRoute.Home else StillRoute.Settings
-            },
-            onBack = { route = currentRoute.backTarget() },
+            onBack = { route = currentRoute.returnTo.asRoute() },
         )
 
-        StillRoute.BrowserFriction -> FrictionScreen(
-            title = "Browser",
-            prompt = "Use this intentionally.",
-            onOpen = {
-                if (homeViewModel.launchSlot(AppSlot.BROWSER)) {
-                    route = StillRoute.Home
-                } else {
-                    route = StillRoute.AppPicker(slot = AppSlot.BROWSER, returnHome = true)
-                }
-            },
-            onCancel = { route = StillRoute.Home },
-        )
+        is StillRoute.SlotEdit -> {
+            val resolved = uiState.resolvedSlots.getOrNull(currentRoute.slotIndex)
+            if (resolved == null || !resolved.isLaunchable) {
+                route = currentRoute.returnTo.asRoute()
+            } else {
+                SlotEditScreen(
+                    resolved = resolved,
+                    onRename = {
+                        route = StillRoute.SlotRename(currentRoute.slotIndex, currentRoute.returnTo)
+                    },
+                    onReplaceApp = {
+                        route = StillRoute.AppPicker(currentRoute.slotIndex, currentRoute.returnTo)
+                    },
+                    onToggleFriction = {
+                        homeViewModel.setSlotFriction(
+                            currentRoute.slotIndex,
+                            !resolved.slot.useFriction,
+                        )
+                    },
+                    onRemove = {
+                        homeViewModel.clearSlot(currentRoute.slotIndex)
+                        route = currentRoute.returnTo.asRoute()
+                    },
+                    onBack = { route = currentRoute.returnTo.asRoute() },
+                )
+            }
+        }
+
+        is StillRoute.SlotRename -> {
+            val resolved = uiState.resolvedSlots.getOrNull(currentRoute.slotIndex)
+            SlotRenameScreen(
+                app = resolved?.app,
+                initialLabel = resolved?.slot?.customLabel,
+                onSave = { label ->
+                    homeViewModel.setSlotLabel(currentRoute.slotIndex, label)
+                    route = currentRoute.returnTo.asRoute()
+                },
+                onClearLabel = {
+                    homeViewModel.setSlotLabel(currentRoute.slotIndex, null)
+                    route = currentRoute.returnTo.asRoute()
+                },
+                onBack = {
+                    route = StillRoute.SlotEdit(currentRoute.slotIndex, currentRoute.returnTo)
+                },
+            )
+        }
+
+        is StillRoute.Friction -> {
+            val resolved = uiState.resolvedSlots.getOrNull(currentRoute.slotIndex)
+            FrictionScreen(
+                title = resolved?.displayLabel ?: "open",
+                prompt = "Use this intentionally.",
+                onOpen = {
+                    val launched = resolved?.app?.let { homeViewModel.launchApp(it) } ?: false
+                    route = if (launched) StillRoute.Home else StillRoute.Home
+                },
+                onCancel = { route = StillRoute.Home },
+            )
+        }
     }
 }
 
-/**
- * Tiny route model for the MVP.
- */
+private enum class ReturnTo {
+    Home, Settings;
+
+    fun asRoute(): StillRoute = when (this) {
+        Home -> StillRoute.Home
+        Settings -> StillRoute.Settings
+    }
+}
+
 private sealed interface StillRoute {
     data object Home : StillRoute
     data object AllApps : StillRoute
     data object Settings : StillRoute
-    data object BrowserFriction : StillRoute
-    data class AppPicker(val slot: AppSlot, val returnHome: Boolean) : StillRoute
+    data class AppPicker(val slotIndex: Int, val returnTo: ReturnTo) : StillRoute
+    data class SlotEdit(val slotIndex: Int, val returnTo: ReturnTo) : StillRoute
+    data class SlotRename(val slotIndex: Int, val returnTo: ReturnTo) : StillRoute
+    data class Friction(val slotIndex: Int) : StillRoute
 }
 
 private fun StillRoute.backTarget(): StillRoute = when (this) {
     StillRoute.Home -> StillRoute.Home
     StillRoute.AllApps -> StillRoute.Home
     StillRoute.Settings -> StillRoute.AllApps
-    StillRoute.BrowserFriction -> StillRoute.Home
-    is StillRoute.AppPicker -> if (returnHome) StillRoute.Home else StillRoute.Settings
+    is StillRoute.AppPicker -> returnTo.asRoute()
+    is StillRoute.SlotEdit -> returnTo.asRoute()
+    is StillRoute.SlotRename -> StillRoute.SlotEdit(slotIndex, returnTo)
+    is StillRoute.Friction -> StillRoute.Home
 }
