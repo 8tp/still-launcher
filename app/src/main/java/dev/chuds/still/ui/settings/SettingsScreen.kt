@@ -27,6 +27,7 @@ fun SettingsScreen(
     onChangeSlotCount: (Int) -> Unit,
     onCycleClockFormat: () -> Unit,
     onToggleShowDate: () -> Unit,
+    onToggleShowHomeHint: () -> Unit,
     onOpenIntents: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -75,6 +76,12 @@ fun SettingsScreen(
                 subtitle = if (settings.showDate) "on  —  taps open intents" else "off",
                 style = StillTypography.SecondaryMenu,
                 onClick = onToggleShowDate,
+            )
+            StillMenuItem(
+                title = "show home hint",
+                subtitle = if (settings.showHomeHint) "on  —  \"long press for all apps\"" else "off",
+                style = StillTypography.SecondaryMenu,
+                onClick = onToggleShowHomeHint,
             )
             Spacer(modifier = Modifier.height(20.dp))
         }

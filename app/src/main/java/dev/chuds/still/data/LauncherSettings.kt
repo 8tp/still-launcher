@@ -1,7 +1,7 @@
 package dev.chuds.still.data
 
 const val MAX_SLOT_COUNT = 10
-const val DEFAULT_SLOT_COUNT = 7
+const val DEFAULT_SLOT_COUNT = 6
 
 /**
  * One home-screen slot. Slots are anonymous indices; the user assigns an app and an optional
@@ -41,6 +41,8 @@ data class LauncherSettings(
     val slotCount: Int = DEFAULT_SLOT_COUNT,
     val clockFormat: ClockFormat = ClockFormat.Auto,
     val showDate: Boolean = true,
+    val showHomeHint: Boolean = true,
+    val firstLaunchCompleted: Boolean = false,
 ) {
     val visibleSlots: List<HomeSlot>
         get() = slots.take(slotCount.coerceIn(1, MAX_SLOT_COUNT))

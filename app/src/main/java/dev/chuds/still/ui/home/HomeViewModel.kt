@@ -14,6 +14,7 @@ import dev.chuds.still.launcher.AppLauncher
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -32,6 +33,7 @@ data class HomeUiState(
     val apps: List<LaunchableApp> = emptyList(),
     val settings: LauncherSettings = LauncherSettings(),
     val resolvedSlots: List<ResolvedSlot> = emptyList(),
+    val systemSettingsPackage: String? = null,
 ) {
     /** All slots within the user's configured count (filled or empty). Used by Settings. */
     val configuredSlots: List<ResolvedSlot>
@@ -40,12 +42,19 @@ data class HomeUiState(
     /** Only filled slots within the configured count. Used by Home. */
     val homeSlots: List<ResolvedSlot>
         get() = configuredSlots.filter { it.isLaunchable }
+
+    /** True when this slot points at the system Settings app — friction is forbidden there. */
+    fun isSystemSettings(slot: ResolvedSlot): Boolean {
+        val pkg = systemSettingsPackage ?: return false
+        return slot.app?.packageName == pkg
+    }
 }
 
 class HomeViewModel(
     private val appRepository: AppRepository,
     private val appLauncher: AppLauncher,
     private val intentJournalRepository: IntentJournalRepository,
+    private val systemSettingsPackage: String?,
 ) : ViewModel() {
     val uiState: StateFlow<HomeUiState> = combine(
         appRepository.launchableApps,
@@ -54,6 +63,7 @@ class HomeViewModel(
         HomeUiState(
             apps = apps,
             settings = settings,
+            systemSettingsPackage = systemSettingsPackage,
             resolvedSlots = settings.slots.map { slot ->
                 ResolvedSlot(slot = slot, app = appRepository.appForSlot(slot, apps))
             },
@@ -63,6 +73,16 @@ class HomeViewModel(
         started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
         initialValue = HomeUiState(),
     )
+
+    init {
+        viewModelScope.launch {
+            val initialSettings = appRepository.settings.first()
+            if (!initialSettings.firstLaunchCompleted) {
+                val apps = appRepository.launchableApps.first { it.isNotEmpty() }
+                appRepository.populateDefaultSlots(apps)
+            }
+        }
+    }
 
     val intentEntries: StateFlow<List<IntentEntry>> = intentJournalRepository.entries.stateIn(
         scope = viewModelScope,
@@ -115,6 +135,8 @@ class HomeViewModel(
     }
 
     fun setSlotFriction(index: Int, useFriction: Boolean) {
+        val resolved = uiState.value.resolvedSlots.getOrNull(index) ?: return
+        if (uiState.value.isSystemSettings(resolved) && useFriction) return
         viewModelScope.launch { appRepository.setSlotFriction(index, useFriction) }
     }
 
@@ -134,11 +156,16 @@ class HomeViewModel(
         viewModelScope.launch { appRepository.setShowDate(show) }
     }
 
+    fun setShowHomeHint(show: Boolean) {
+        viewModelScope.launch { appRepository.setShowHomeHint(show) }
+    }
+
     companion object {
         fun factory(
             appRepository: AppRepository,
             appLauncher: AppLauncher,
             intentJournalRepository: IntentJournalRepository,
+            systemSettingsPackage: String?,
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -147,6 +174,7 @@ class HomeViewModel(
                         appRepository = appRepository,
                         appLauncher = appLauncher,
                         intentJournalRepository = intentJournalRepository,
+                        systemSettingsPackage = systemSettingsPackage,
                     ) as T
                 }
                 throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")

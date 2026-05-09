@@ -21,6 +21,8 @@ private val Context.stillPreferencesDataStore: DataStore<Preferences> by prefere
 private val SLOT_COUNT_KEY = intPreferencesKey("slot_count")
 private val CLOCK_FORMAT_KEY = stringPreferencesKey("clock_format")
 private val SHOW_DATE_KEY = booleanPreferencesKey("show_date")
+private val SHOW_HOME_HINT_KEY = booleanPreferencesKey("show_home_hint")
+private val FIRST_LAUNCH_COMPLETED_KEY = booleanPreferencesKey("first_launch_completed")
 
 /**
  * Reads and writes local slot state and launcher-wide preferences. No remote sync, no telemetry,
@@ -54,6 +56,8 @@ class PreferencesRepository(
                     ?.let { runCatching { ClockFormat.valueOf(it) }.getOrNull() }
                     ?: ClockFormat.Auto,
                 showDate = preferences[SHOW_DATE_KEY] ?: true,
+                showHomeHint = preferences[SHOW_HOME_HINT_KEY] ?: true,
+                firstLaunchCompleted = preferences[FIRST_LAUNCH_COMPLETED_KEY] ?: false,
             )
         }
 
@@ -109,6 +113,30 @@ class PreferencesRepository(
     suspend fun setShowDate(show: Boolean) {
         context.stillPreferencesDataStore.edit { preferences ->
             preferences[SHOW_DATE_KEY] = show
+        }
+    }
+
+    suspend fun setShowHomeHint(show: Boolean) {
+        context.stillPreferencesDataStore.edit { preferences ->
+            preferences[SHOW_HOME_HINT_KEY] = show
+        }
+    }
+
+    suspend fun applyDefaultSlots(slots: List<HomeSlot>) {
+        context.stillPreferencesDataStore.edit { preferences ->
+            slots.forEach { slot ->
+                if (slot.isSet) {
+                    preferences[packageKey(slot.index)] = slot.packageName
+                    preferences[classKey(slot.index)] = slot.className
+                }
+            }
+            preferences[FIRST_LAUNCH_COMPLETED_KEY] = true
+        }
+    }
+
+    suspend fun markFirstLaunchCompleted() {
+        context.stillPreferencesDataStore.edit { preferences ->
+            preferences[FIRST_LAUNCH_COMPLETED_KEY] = true
         }
     }
 

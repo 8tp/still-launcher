@@ -21,10 +21,11 @@ It declares no internet permission. It ships no analytics. It depends on neither
 ## What Still does
 
 - Replaces the home screen with a clock, a date, and **the slots you've filled** — nothing else. No wordmark, no `add app` placeholders, no empty rows. The home shows only what you put on it.
+- **Sane first-launch defaults**: Phone, Messaging, Browser, Camera, Calendar, Settings, resolved from system intents. Each slot is yours to rename, replace, or remove.
 - Each slot opens an app you choose, with a label you choose. Mappings persist locally in Preferences DataStore.
-- Any slot can be marked **use intentionally** — tapping it opens an intent prompt (*Use this intentionally. what for?*) before launching. Type a sentence, press Done, and the app opens.
+- Any slot can be marked **use intentionally** — tapping it opens an intent prompt (*Use this intentionally. what for?*) before launching. Type a sentence, press Done, and the app opens. (Settings is exempt — it's the escape hatch and must always be one tap away.)
 - An **intent journal** records what you typed every time you launched something through the prompt. Tap the date on the home screen to read back through it. Still doesn't block anything; it just remembers what you said you'd do.
-- **Configurable**: slot count (1–10), 12/24-hour clock, date toggle, per-slot friction. Every choice is yours to make.
+- **Configurable**: slot count (1–10), 12/24-hour clock, date toggle, home-hint toggle, per-slot friction. Every choice is yours to make.
 - Long-press the home background to reveal a hidden all-apps list and settings.
 
 ## The intent journal
@@ -115,7 +116,7 @@ adb shell cmd package set-home-activity dev.chuds.still/.MainActivity
 
 ## Notes for GrapheneOS
 
-Still depends on no part of Google Play Services, so it runs cleanly on a fresh GrapheneOS profile. There are no first-boot heuristics — every slot starts empty and the home shows only the clock until you fill them. Long-press the home background to open the hidden all-apps list, then open settings to map your slots.
+Still depends on no part of Google Play Services, so it runs cleanly on a fresh GrapheneOS profile. On first launch it resolves the canonical system apps for Phone, Messaging, Browser, Camera, Calendar, and Settings via standard category intents and seeds the slot list — categories that don't resolve (e.g. no preinstalled browser) leave their slots empty for you to fill.
 
 ## Status
 

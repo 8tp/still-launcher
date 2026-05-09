@@ -117,12 +117,13 @@ fun HomeScreen(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        Text(
-            text = "long press for all apps",
-            style = StillTypography.Caption,
-            color = StillColors.DimGray,
-        )
-
-        Spacer(modifier = Modifier.height(4.dp))
+        if (uiState.settings.showHomeHint) {
+            Text(
+                text = "long press for all apps",
+                style = StillTypography.Caption,
+                color = StillColors.DimGray,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+        }
     }
 }

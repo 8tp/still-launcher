@@ -15,7 +15,9 @@ import dev.chuds.still.data.ClockFormat
 import dev.chuds.still.data.IntentJournalRepository
 import dev.chuds.still.data.PreferencesRepository
 import dev.chuds.still.launcher.AppLauncher
+import dev.chuds.still.launcher.DefaultSlotResolver
 import dev.chuds.still.launcher.PackageScanner
+import dev.chuds.still.launcher.SystemSettingsLocator
 import dev.chuds.still.ui.home.HomeScreen
 import dev.chuds.still.ui.home.HomeViewModel
 import dev.chuds.still.ui.home.SlotEditScreen
@@ -42,15 +44,20 @@ fun StillApp() {
         AppRepository(
             packageScanner = PackageScanner(appContext.packageManager),
             preferencesRepository = preferencesRepository,
+            defaultSlotResolver = DefaultSlotResolver(appContext.packageManager),
         )
     }
     val appLauncher = remember(appContext) { AppLauncher(appContext) }
+    val systemSettingsPackage = remember(appContext) {
+        SystemSettingsLocator(appContext.packageManager).packageName
+    }
 
     val homeViewModel: HomeViewModel = viewModel(
         factory = HomeViewModel.factory(
             appRepository = appRepository,
             appLauncher = appLauncher,
             intentJournalRepository = intentJournalRepository,
+            systemSettingsPackage = systemSettingsPackage,
         ),
     )
 
@@ -120,6 +127,9 @@ fun StillApp() {
             onToggleShowDate = {
                 homeViewModel.setShowDate(!uiState.settings.showDate)
             },
+            onToggleShowHomeHint = {
+                homeViewModel.setShowHomeHint(!uiState.settings.showHomeHint)
+            },
             onOpenIntents = { route = StillRoute.Intents(ReturnTo.Settings) },
             onBack = { route = StillRoute.AllApps },
         )
@@ -142,6 +152,7 @@ fun StillApp() {
             } else {
                 SlotEditScreen(
                     resolved = resolved,
+                    isSystemSettings = uiState.isSystemSettings(resolved),
                     onRename = {
                         route = StillRoute.SlotRename(currentRoute.slotIndex, currentRoute.returnTo)
                     },

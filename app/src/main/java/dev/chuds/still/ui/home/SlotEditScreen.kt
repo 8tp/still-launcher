@@ -22,6 +22,7 @@ import dev.chuds.still.ui.theme.StillTypography
 @Composable
 fun SlotEditScreen(
     resolved: ResolvedSlot,
+    isSystemSettings: Boolean,
     onRename: () -> Unit,
     onReplaceApp: () -> Unit,
     onToggleFriction: () -> Unit,
@@ -83,12 +84,14 @@ fun SlotEditScreen(
             onClick = onReplaceApp,
         )
 
-        StillMenuItem(
-            title = "use intentionally",
-            subtitle = if (resolved.slot.useFriction) "on" else "off",
-            style = StillTypography.SecondaryMenu,
-            onClick = onToggleFriction,
-        )
+        if (!isSystemSettings) {
+            StillMenuItem(
+                title = "use intentionally",
+                subtitle = if (resolved.slot.useFriction) "on" else "off",
+                style = StillTypography.SecondaryMenu,
+                onClick = onToggleFriction,
+            )
+        }
 
         StillMenuItem(
             title = "remove",
