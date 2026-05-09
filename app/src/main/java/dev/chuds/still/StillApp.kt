@@ -96,6 +96,7 @@ fun StillApp() {
 
         StillRoute.AllApps -> AllAppsScreen(
             apps = uiState.apps,
+            showAppIcons = uiState.settings.showAppIcons,
             onLaunchApp = { app ->
                 homeViewModel.launchApp(app)
                 route = StillRoute.Home
@@ -130,6 +131,9 @@ fun StillApp() {
             onToggleShowHomeHint = {
                 homeViewModel.setShowHomeHint(!uiState.settings.showHomeHint)
             },
+            onToggleShowAppIcons = {
+                homeViewModel.setShowAppIcons(!uiState.settings.showAppIcons)
+            },
             onOpenIntents = { route = StillRoute.Intents(ReturnTo.Settings) },
             onBack = { route = StillRoute.AllApps },
         )
@@ -138,6 +142,7 @@ fun StillApp() {
             slotIndex = currentRoute.slotIndex,
             apps = uiState.apps,
             selectedApp = uiState.resolvedSlots.getOrNull(currentRoute.slotIndex)?.app,
+            showAppIcons = uiState.settings.showAppIcons,
             onAppSelected = { app ->
                 homeViewModel.setSlotApp(currentRoute.slotIndex, app)
                 route = currentRoute.returnTo.asRoute()

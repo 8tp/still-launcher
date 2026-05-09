@@ -28,6 +28,7 @@ fun SettingsScreen(
     onCycleClockFormat: () -> Unit,
     onToggleShowDate: () -> Unit,
     onToggleShowHomeHint: () -> Unit,
+    onToggleShowAppIcons: () -> Unit,
     onOpenIntents: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -82,6 +83,12 @@ fun SettingsScreen(
                 subtitle = if (settings.showHomeHint) "on  —  \"long press for all apps\"" else "off",
                 style = StillTypography.SecondaryMenu,
                 onClick = onToggleShowHomeHint,
+            )
+            StillMenuItem(
+                title = "app icons",
+                subtitle = if (settings.showAppIcons) "on  —  shown in all apps + picker" else "off",
+                style = StillTypography.SecondaryMenu,
+                onClick = onToggleShowAppIcons,
             )
             Spacer(modifier = Modifier.height(20.dp))
         }

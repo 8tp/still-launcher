@@ -42,6 +42,7 @@ data class LauncherSettings(
     val clockFormat: ClockFormat = ClockFormat.Auto,
     val showDate: Boolean = true,
     val showHomeHint: Boolean = true,
+    val showAppIcons: Boolean = false,
     val firstLaunchCompleted: Boolean = false,
 ) {
     val visibleSlots: List<HomeSlot>

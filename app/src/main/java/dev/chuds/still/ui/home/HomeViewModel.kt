@@ -160,6 +160,10 @@ class HomeViewModel(
         viewModelScope.launch { appRepository.setShowHomeHint(show) }
     }
 
+    fun setShowAppIcons(show: Boolean) {
+        viewModelScope.launch { appRepository.setShowAppIcons(show) }
+    }
+
     companion object {
         fun factory(
             appRepository: AppRepository,

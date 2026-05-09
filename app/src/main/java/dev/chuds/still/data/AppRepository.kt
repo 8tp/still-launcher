@@ -54,6 +54,9 @@ class AppRepository(
     suspend fun setShowHomeHint(show: Boolean) =
         preferencesRepository.setShowHomeHint(show)
 
+    suspend fun setShowAppIcons(show: Boolean) =
+        preferencesRepository.setShowAppIcons(show)
+
     suspend fun populateDefaultSlots(apps: List<LaunchableApp>) {
         val defaults = defaultSlotResolver.resolve(apps)
         if (defaults.isEmpty()) {

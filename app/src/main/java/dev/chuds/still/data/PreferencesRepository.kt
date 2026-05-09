@@ -22,6 +22,7 @@ private val SLOT_COUNT_KEY = intPreferencesKey("slot_count")
 private val CLOCK_FORMAT_KEY = stringPreferencesKey("clock_format")
 private val SHOW_DATE_KEY = booleanPreferencesKey("show_date")
 private val SHOW_HOME_HINT_KEY = booleanPreferencesKey("show_home_hint")
+private val SHOW_APP_ICONS_KEY = booleanPreferencesKey("show_app_icons")
 private val FIRST_LAUNCH_COMPLETED_KEY = booleanPreferencesKey("first_launch_completed")
 
 /**
@@ -57,6 +58,7 @@ class PreferencesRepository(
                     ?: ClockFormat.Auto,
                 showDate = preferences[SHOW_DATE_KEY] ?: true,
                 showHomeHint = preferences[SHOW_HOME_HINT_KEY] ?: true,
+                showAppIcons = preferences[SHOW_APP_ICONS_KEY] ?: false,
                 firstLaunchCompleted = preferences[FIRST_LAUNCH_COMPLETED_KEY] ?: false,
             )
         }
@@ -119,6 +121,12 @@ class PreferencesRepository(
     suspend fun setShowHomeHint(show: Boolean) {
         context.stillPreferencesDataStore.edit { preferences ->
             preferences[SHOW_HOME_HINT_KEY] = show
+        }
+    }
+
+    suspend fun setShowAppIcons(show: Boolean) {
+        context.stillPreferencesDataStore.edit { preferences ->
+            preferences[SHOW_APP_ICONS_KEY] = show
         }
     }
 
