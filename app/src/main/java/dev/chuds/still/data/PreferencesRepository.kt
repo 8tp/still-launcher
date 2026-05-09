@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import java.io.IOException
@@ -17,8 +18,13 @@ private val Context.stillPreferencesDataStore: DataStore<Preferences> by prefere
     name = "still_settings",
 )
 
+private val SLOT_COUNT_KEY = intPreferencesKey("slot_count")
+private val CLOCK_FORMAT_KEY = stringPreferencesKey("clock_format")
+private val SHOW_DATE_KEY = booleanPreferencesKey("show_date")
+
 /**
- * Reads and writes local slot state. No remote sync, no telemetry, no analytics, no network.
+ * Reads and writes local slot state and launcher-wide preferences. No remote sync, no telemetry,
+ * no analytics, no network.
  */
 class PreferencesRepository(
     private val context: Context,
@@ -33,7 +39,7 @@ class PreferencesRepository(
         }
         .map { preferences ->
             LauncherSettings(
-                slots = (0 until SLOT_COUNT).map { index ->
+                slots = (0 until MAX_SLOT_COUNT).map { index ->
                     HomeSlot(
                         index = index,
                         packageName = preferences[packageKey(index)] ?: "",
@@ -42,6 +48,12 @@ class PreferencesRepository(
                         useFriction = preferences[frictionKey(index)] ?: false,
                     )
                 },
+                slotCount = (preferences[SLOT_COUNT_KEY] ?: DEFAULT_SLOT_COUNT)
+                    .coerceIn(1, MAX_SLOT_COUNT),
+                clockFormat = (preferences[CLOCK_FORMAT_KEY])
+                    ?.let { runCatching { ClockFormat.valueOf(it) }.getOrNull() }
+                    ?: ClockFormat.Auto,
+                showDate = preferences[SHOW_DATE_KEY] ?: true,
             )
         }
 
@@ -79,6 +91,24 @@ class PreferencesRepository(
             preferences.remove(classKey(index))
             preferences.remove(labelKey(index))
             preferences.remove(frictionKey(index))
+        }
+    }
+
+    suspend fun setSlotCount(count: Int) {
+        context.stillPreferencesDataStore.edit { preferences ->
+            preferences[SLOT_COUNT_KEY] = count.coerceIn(1, MAX_SLOT_COUNT)
+        }
+    }
+
+    suspend fun setClockFormat(format: ClockFormat) {
+        context.stillPreferencesDataStore.edit { preferences ->
+            preferences[CLOCK_FORMAT_KEY] = format.name
+        }
+    }
+
+    suspend fun setShowDate(show: Boolean) {
+        context.stillPreferencesDataStore.edit { preferences ->
+            preferences[SHOW_DATE_KEY] = show
         }
     }
 

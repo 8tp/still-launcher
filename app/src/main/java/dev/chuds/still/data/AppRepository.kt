@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Combines installed-app scanning with the user's slot configuration.
+ * Combines installed-app scanning with the user's slot configuration and launcher prefs.
  *
  * No first-boot heuristics. New installs see seven empty slots; the user fills them.
  */
@@ -38,4 +38,13 @@ class AppRepository(
 
     suspend fun clearSlot(index: Int) =
         preferencesRepository.clearSlot(index)
+
+    suspend fun setSlotCount(count: Int) =
+        preferencesRepository.setSlotCount(count)
+
+    suspend fun setClockFormat(format: ClockFormat) =
+        preferencesRepository.setClockFormat(format)
+
+    suspend fun setShowDate(show: Boolean) =
+        preferencesRepository.setShowDate(show)
 }

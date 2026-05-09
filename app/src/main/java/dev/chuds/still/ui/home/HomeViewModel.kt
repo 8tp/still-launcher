@@ -4,7 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import dev.chuds.still.data.AppRepository
+import dev.chuds.still.data.ClockFormat
 import dev.chuds.still.data.HomeSlot
+import dev.chuds.still.data.IntentEntry
+import dev.chuds.still.data.IntentJournalRepository
 import dev.chuds.still.data.LaunchableApp
 import dev.chuds.still.data.LauncherSettings
 import dev.chuds.still.launcher.AppLauncher
@@ -29,11 +32,20 @@ data class HomeUiState(
     val apps: List<LaunchableApp> = emptyList(),
     val settings: LauncherSettings = LauncherSettings(),
     val resolvedSlots: List<ResolvedSlot> = emptyList(),
-)
+) {
+    /** All slots within the user's configured count (filled or empty). Used by Settings. */
+    val configuredSlots: List<ResolvedSlot>
+        get() = resolvedSlots.take(settings.slotCount)
+
+    /** Only filled slots within the configured count. Used by Home. */
+    val homeSlots: List<ResolvedSlot>
+        get() = configuredSlots.filter { it.isLaunchable }
+}
 
 class HomeViewModel(
     private val appRepository: AppRepository,
     private val appLauncher: AppLauncher,
+    private val intentJournalRepository: IntentJournalRepository,
 ) : ViewModel() {
     val uiState: StateFlow<HomeUiState> = combine(
         appRepository.launchableApps,
@@ -52,6 +64,12 @@ class HomeViewModel(
         initialValue = HomeUiState(),
     )
 
+    val intentEntries: StateFlow<List<IntentEntry>> = intentJournalRepository.entries.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+        initialValue = emptyList(),
+    )
+
     fun refreshApps() = appRepository.refreshApps()
 
     fun launchSlot(index: Int): Boolean {
@@ -61,6 +79,32 @@ class HomeViewModel(
     }
 
     fun launchApp(app: LaunchableApp): Boolean = appLauncher.launch(app)
+
+    /**
+     * Launch the slot's app, journaling the typed intent first if non-blank.
+     */
+    fun launchSlotWithIntent(index: Int, intent: String?): Boolean {
+        val resolved = uiState.value.resolvedSlots.getOrNull(index) ?: return false
+        val app = resolved.app ?: return false
+        val trimmed = intent?.trim().orEmpty()
+        if (trimmed.isNotEmpty()) {
+            viewModelScope.launch {
+                intentJournalRepository.add(
+                    IntentEntry(
+                        timestamp = System.currentTimeMillis(),
+                        slotLabel = resolved.displayLabel.orEmpty(),
+                        packageName = app.packageName,
+                        intent = trimmed,
+                    ),
+                )
+            }
+        }
+        return appLauncher.launch(app)
+    }
+
+    fun clearJournal() {
+        viewModelScope.launch { intentJournalRepository.clear() }
+    }
 
     fun setSlotApp(index: Int, app: LaunchableApp) {
         viewModelScope.launch { appRepository.setSlotApp(index, app) }
@@ -78,10 +122,23 @@ class HomeViewModel(
         viewModelScope.launch { appRepository.clearSlot(index) }
     }
 
+    fun setSlotCount(count: Int) {
+        viewModelScope.launch { appRepository.setSlotCount(count) }
+    }
+
+    fun setClockFormat(format: ClockFormat) {
+        viewModelScope.launch { appRepository.setClockFormat(format) }
+    }
+
+    fun setShowDate(show: Boolean) {
+        viewModelScope.launch { appRepository.setShowDate(show) }
+    }
+
     companion object {
         fun factory(
             appRepository: AppRepository,
             appLauncher: AppLauncher,
+            intentJournalRepository: IntentJournalRepository,
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -89,6 +146,7 @@ class HomeViewModel(
                     return HomeViewModel(
                         appRepository = appRepository,
                         appLauncher = appLauncher,
+                        intentJournalRepository = intentJournalRepository,
                     ) as T
                 }
                 throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")

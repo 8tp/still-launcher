@@ -1,10 +1,11 @@
 package dev.chuds.still.data
 
-const val SLOT_COUNT = 7
+const val MAX_SLOT_COUNT = 10
+const val DEFAULT_SLOT_COUNT = 7
 
 /**
  * One home-screen slot. Slots are anonymous indices; the user assigns an app and an optional
- * label. `useFriction` gates the launch through `FrictionScreen`.
+ * label. `useFriction` gates the launch through the intent prompt.
  */
 data class HomeSlot(
     val index: Int,
@@ -26,10 +27,23 @@ data class HomeSlot(
 }
 
 /**
- * Local launcher configuration. Exactly `SLOT_COUNT` slots, indexed 0..SLOT_COUNT-1.
+ * Clock-format preference. `Auto` follows the system's 12/24-hour setting.
+ */
+enum class ClockFormat { Auto, Hours12, Hours24 }
+
+/**
+ * Local launcher configuration. The slot list always contains MAX_SLOT_COUNT entries (so we
+ * preserve assignments when the user temporarily lowers slotCount); UI surfaces should clip to
+ * `slotCount` when rendering.
  */
 data class LauncherSettings(
-    val slots: List<HomeSlot> = (0 until SLOT_COUNT).map { HomeSlot(it) },
+    val slots: List<HomeSlot> = (0 until MAX_SLOT_COUNT).map { HomeSlot(it) },
+    val slotCount: Int = DEFAULT_SLOT_COUNT,
+    val clockFormat: ClockFormat = ClockFormat.Auto,
+    val showDate: Boolean = true,
 ) {
+    val visibleSlots: List<HomeSlot>
+        get() = slots.take(slotCount.coerceIn(1, MAX_SLOT_COUNT))
+
     fun slotAt(index: Int): HomeSlot = slots.getOrElse(index) { HomeSlot(index) }
 }

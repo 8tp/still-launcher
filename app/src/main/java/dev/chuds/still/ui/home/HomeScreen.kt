@@ -1,7 +1,9 @@
 package dev.chuds.still.ui.home
 
+import android.text.format.DateFormat
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
@@ -18,7 +20,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import dev.chuds.still.data.ClockFormat
 import dev.chuds.still.ui.components.StillMenuItem
 import dev.chuds.still.ui.theme.StillColors
 import dev.chuds.still.ui.theme.StillTypography
@@ -30,22 +34,25 @@ import kotlinx.coroutines.delay
 /**
  * The home surface.
  *
- * No wordmark. Clock + date, then up to seven user-defined slots. Empty slots show a dim
- * `add app` placeholder. Tap empty → app picker. Long-press filled → edit sheet. Long-press
- * background → all apps.
+ * No wordmark. Clock + optional date, then only the slots the user has filled (within the
+ * configured count). No `add app` placeholders — to add a slot, open settings.
+ *
+ * Long-press background → all apps. Tap date → intents journal.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     uiState: HomeUiState,
     onLaunchSlot: (Int) -> Unit,
-    onAddSlotApp: (Int) -> Unit,
     onEditSlot: (Int) -> Unit,
     onOpenAllApps: () -> Unit,
+    onOpenIntents: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var now by remember { mutableStateOf(LocalDateTime.now()) }
     val backgroundInteractionSource = remember { MutableInteractionSource() }
+    val dateInteractionSource = remember { MutableInteractionSource() }
+    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -54,7 +61,15 @@ fun HomeScreen(
         }
     }
 
-    val clockFormatter = remember { DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault()) }
+    val use24h = when (uiState.settings.clockFormat) {
+        ClockFormat.Hours24 -> true
+        ClockFormat.Hours12 -> false
+        ClockFormat.Auto -> DateFormat.is24HourFormat(context)
+    }
+    val clockPattern = if (use24h) "HH:mm" else "h:mm"
+    val clockFormatter = remember(clockPattern) {
+        DateTimeFormatter.ofPattern(clockPattern, Locale.getDefault())
+    }
     val dateFormatter = remember { DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.getDefault()) }
 
     Column(
@@ -76,40 +91,27 @@ fun HomeScreen(
             color = StillColors.SoftWhite,
         )
 
-        Text(
-            text = now.format(dateFormatter),
-            style = StillTypography.Date,
-            color = StillColors.Gray,
-        )
+        if (uiState.settings.showDate) {
+            Text(
+                text = now.format(dateFormatter),
+                style = StillTypography.Date,
+                color = StillColors.Gray,
+                modifier = Modifier.clickable(
+                    interactionSource = dateInteractionSource,
+                    indication = null,
+                    onClick = onOpenIntents,
+                ),
+            )
+        }
 
         Spacer(modifier = Modifier.weight(1f))
 
-        uiState.resolvedSlots.forEach { resolved ->
-            val isFilled = resolved.isLaunchable
-            val title = resolved.displayLabel ?: "add app"
-            val titleColor = if (isFilled) StillColors.SoftWhite else StillColors.DimGray
-            val subtitle = when {
-                resolved.slot.isSet && !isFilled -> "missing"
-                resolved.slot.useFriction && isFilled -> "use intentionally"
-                else -> null
-            }
-
+        uiState.homeSlots.forEach { resolved ->
             StillMenuItem(
-                title = title,
-                subtitle = subtitle,
-                titleColor = titleColor,
-                onClick = {
-                    if (isFilled) {
-                        onLaunchSlot(resolved.slot.index)
-                    } else {
-                        onAddSlotApp(resolved.slot.index)
-                    }
-                },
-                onLongClick = if (isFilled) {
-                    { onEditSlot(resolved.slot.index) }
-                } else {
-                    null
-                },
+                title = resolved.displayLabel.orEmpty(),
+                subtitle = if (resolved.slot.useFriction) "use intentionally" else null,
+                onClick = { onLaunchSlot(resolved.slot.index) },
+                onLongClick = { onEditSlot(resolved.slot.index) },
             )
         }
 

@@ -2,6 +2,7 @@ package dev.chuds.still
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -10,30 +11,33 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.chuds.still.data.AppRepository
+import dev.chuds.still.data.ClockFormat
+import dev.chuds.still.data.IntentJournalRepository
 import dev.chuds.still.data.PreferencesRepository
 import dev.chuds.still.launcher.AppLauncher
 import dev.chuds.still.launcher.PackageScanner
-import dev.chuds.still.ui.friction.FrictionScreen
 import dev.chuds.still.ui.home.HomeScreen
 import dev.chuds.still.ui.home.HomeViewModel
 import dev.chuds.still.ui.home.SlotEditScreen
 import dev.chuds.still.ui.home.SlotRenameScreen
+import dev.chuds.still.ui.intents.IntentPromptScreen
+import dev.chuds.still.ui.intents.IntentsScreen
 import dev.chuds.still.ui.settings.AllAppsScreen
 import dev.chuds.still.ui.settings.AppPickerScreen
 import dev.chuds.still.ui.settings.SettingsScreen
 
 /**
- * Top-level Compose application shell with a hand-rolled router.
+ * Top-level Compose application shell.
  *
- * Slots are anonymous indices (0..SLOT_COUNT-1). Each slot stores its app, an optional custom
- * label, and a friction flag. The router carries a `returnTo` hint so flows started from
- * Settings unwind to Settings rather than Home.
+ * Hand-rolled router with a `returnTo` hint so flows started from Settings unwind to Settings
+ * rather than Home. Intent prompt journals the typed text on Open before launching.
  */
 @Composable
 fun StillApp() {
     val appContext = LocalContext.current.applicationContext
 
     val preferencesRepository = remember(appContext) { PreferencesRepository(appContext) }
+    val intentJournalRepository = remember(appContext) { IntentJournalRepository(appContext) }
     val appRepository = remember(appContext) {
         AppRepository(
             packageScanner = PackageScanner(appContext.packageManager),
@@ -46,10 +50,12 @@ fun StillApp() {
         factory = HomeViewModel.factory(
             appRepository = appRepository,
             appLauncher = appLauncher,
+            intentJournalRepository = intentJournalRepository,
         ),
     )
 
     val uiState by homeViewModel.uiState.collectAsStateWithLifecycle()
+    val intentEntries by homeViewModel.intentEntries.collectAsState()
     var route by remember { mutableStateOf<StillRoute>(StillRoute.Home) }
 
     BackHandler(enabled = route != StillRoute.Home) {
@@ -59,12 +65,12 @@ fun StillApp() {
     fun launchSlot(slotIndex: Int) {
         val resolved = uiState.resolvedSlots.getOrNull(slotIndex)
         when {
-            resolved == null -> Unit
-            resolved.slot.useFriction && resolved.isLaunchable -> {
-                route = StillRoute.Friction(slotIndex)
+            resolved == null || !resolved.isLaunchable -> Unit
+            resolved.slot.useFriction -> {
+                route = StillRoute.IntentPrompt(slotIndex)
             }
-            !homeViewModel.launchSlot(slotIndex) -> {
-                route = StillRoute.AppPicker(slotIndex, ReturnTo.Home)
+            else -> {
+                homeViewModel.launchSlot(slotIndex)
             }
         }
     }
@@ -73,12 +79,12 @@ fun StillApp() {
         StillRoute.Home -> HomeScreen(
             uiState = uiState,
             onLaunchSlot = ::launchSlot,
-            onAddSlotApp = { index -> route = StillRoute.AppPicker(index, ReturnTo.Home) },
             onEditSlot = { index -> route = StillRoute.SlotEdit(index, ReturnTo.Home) },
             onOpenAllApps = {
                 homeViewModel.refreshApps()
                 route = StillRoute.AllApps
             },
+            onOpenIntents = { route = StillRoute.Intents(ReturnTo.Home) },
         )
 
         StillRoute.AllApps -> AllAppsScreen(
@@ -102,6 +108,19 @@ fun StillApp() {
                     StillRoute.AppPicker(index, ReturnTo.Settings)
                 }
             },
+            onChangeSlotCount = homeViewModel::setSlotCount,
+            onCycleClockFormat = {
+                val next = when (uiState.settings.clockFormat) {
+                    ClockFormat.Auto -> ClockFormat.Hours12
+                    ClockFormat.Hours12 -> ClockFormat.Hours24
+                    ClockFormat.Hours24 -> ClockFormat.Auto
+                }
+                homeViewModel.setClockFormat(next)
+            },
+            onToggleShowDate = {
+                homeViewModel.setShowDate(!uiState.settings.showDate)
+            },
+            onOpenIntents = { route = StillRoute.Intents(ReturnTo.Settings) },
             onBack = { route = StillRoute.AllApps },
         )
 
@@ -163,18 +182,23 @@ fun StillApp() {
             )
         }
 
-        is StillRoute.Friction -> {
+        is StillRoute.IntentPrompt -> {
             val resolved = uiState.resolvedSlots.getOrNull(currentRoute.slotIndex)
-            FrictionScreen(
-                title = resolved?.displayLabel ?: "open",
-                prompt = "Use this intentionally.",
-                onOpen = {
-                    val launched = resolved?.app?.let { homeViewModel.launchApp(it) } ?: false
-                    route = if (launched) StillRoute.Home else StillRoute.Home
+            IntentPromptScreen(
+                slotLabel = resolved?.displayLabel ?: "open",
+                onOpen = { intent ->
+                    homeViewModel.launchSlotWithIntent(currentRoute.slotIndex, intent)
+                    route = StillRoute.Home
                 },
                 onCancel = { route = StillRoute.Home },
             )
         }
+
+        is StillRoute.Intents -> IntentsScreen(
+            entries = intentEntries,
+            onClear = homeViewModel::clearJournal,
+            onBack = { route = currentRoute.returnTo.asRoute() },
+        )
     }
 }
 
@@ -194,7 +218,8 @@ private sealed interface StillRoute {
     data class AppPicker(val slotIndex: Int, val returnTo: ReturnTo) : StillRoute
     data class SlotEdit(val slotIndex: Int, val returnTo: ReturnTo) : StillRoute
     data class SlotRename(val slotIndex: Int, val returnTo: ReturnTo) : StillRoute
-    data class Friction(val slotIndex: Int) : StillRoute
+    data class IntentPrompt(val slotIndex: Int) : StillRoute
+    data class Intents(val returnTo: ReturnTo) : StillRoute
 }
 
 private fun StillRoute.backTarget(): StillRoute = when (this) {
@@ -204,5 +229,6 @@ private fun StillRoute.backTarget(): StillRoute = when (this) {
     is StillRoute.AppPicker -> returnTo.asRoute()
     is StillRoute.SlotEdit -> returnTo.asRoute()
     is StillRoute.SlotRename -> StillRoute.SlotEdit(slotIndex, returnTo)
-    is StillRoute.Friction -> StillRoute.Home
+    is StillRoute.IntentPrompt -> StillRoute.Home
+    is StillRoute.Intents -> returnTo.asRoute()
 }
