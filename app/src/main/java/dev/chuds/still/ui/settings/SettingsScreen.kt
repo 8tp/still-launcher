@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -15,8 +14,8 @@ import androidx.compose.ui.unit.dp
 import dev.chuds.still.data.ClockFormat
 import dev.chuds.still.data.FontPreset
 import dev.chuds.still.data.MAX_SLOT_COUNT
-import dev.chuds.still.ui.components.StillDivider
 import dev.chuds.still.ui.components.StillMenuItem
+import dev.chuds.still.ui.components.StillSectionCard
 import dev.chuds.still.ui.home.HomeUiState
 import dev.chuds.still.ui.theme.StillColors
 import dev.chuds.still.ui.theme.StillTypography
@@ -50,95 +49,96 @@ fun SettingsScreen(
                 style = StillTypography.Kicker,
                 color = StillColors.Gray,
             )
-            Spacer(modifier = Modifier.height(34.dp))
+            Spacer(modifier = Modifier.height(28.dp))
         }
 
         item {
             SectionHeading("launcher")
-            StillMenuItem(
-                title = "slot count",
-                subtitle = "${settings.slotCount}  —  tap +1, long-press -1",
-                style = StillTypography.SecondaryMenu,
-                onClick = {
-                    val next = if (settings.slotCount >= MAX_SLOT_COUNT) 1 else settings.slotCount + 1
-                    onChangeSlotCount(next)
-                },
-                onLongClick = {
-                    val next = if (settings.slotCount <= 1) MAX_SLOT_COUNT else settings.slotCount - 1
-                    onChangeSlotCount(next)
-                },
-            )
-            StillMenuItem(
-                title = "clock format",
-                subtitle = clockFormatLabel(settings.clockFormat),
-                style = StillTypography.SecondaryMenu,
-                onClick = onCycleClockFormat,
-            )
-            StillMenuItem(
-                title = "show date",
-                subtitle = if (settings.showDate) "on  —  taps open intents" else "off",
-                style = StillTypography.SecondaryMenu,
-                onClick = onToggleShowDate,
-            )
-            StillMenuItem(
-                title = "show home hint",
-                subtitle = if (settings.showHomeHint) "on  —  \"long press for all apps\"" else "off",
-                style = StillTypography.SecondaryMenu,
-                onClick = onToggleShowHomeHint,
-            )
-            StillMenuItem(
-                title = "app icons",
-                subtitle = if (settings.showAppIcons) "on  —  shown in all apps + picker" else "off",
-                style = StillTypography.SecondaryMenu,
-                onClick = onToggleShowAppIcons,
-            )
-            StillMenuItem(
-                title = "font",
-                subtitle = fontPresetLabel(settings.fontPreset),
-                style = StillTypography.SecondaryMenu,
-                onClick = onCycleFontPreset,
-            )
+            StillSectionCard {
+                StillMenuItem(
+                    title = "slot count",
+                    subtitle = "${settings.slotCount}  —  tap +1, long-press -1",
+                    style = StillTypography.SecondaryMenu,
+                    onClick = {
+                        val next = if (settings.slotCount >= MAX_SLOT_COUNT) 1 else settings.slotCount + 1
+                        onChangeSlotCount(next)
+                    },
+                    onLongClick = {
+                        val next = if (settings.slotCount <= 1) MAX_SLOT_COUNT else settings.slotCount - 1
+                        onChangeSlotCount(next)
+                    },
+                )
+                StillMenuItem(
+                    title = "clock format",
+                    subtitle = clockFormatLabel(settings.clockFormat),
+                    style = StillTypography.SecondaryMenu,
+                    onClick = onCycleClockFormat,
+                )
+                StillMenuItem(
+                    title = "show date",
+                    subtitle = if (settings.showDate) "on  —  taps open intents" else "off",
+                    style = StillTypography.SecondaryMenu,
+                    onClick = onToggleShowDate,
+                )
+                StillMenuItem(
+                    title = "show home hint",
+                    subtitle = if (settings.showHomeHint) "on  —  \"long press for all apps\"" else "off",
+                    style = StillTypography.SecondaryMenu,
+                    onClick = onToggleShowHomeHint,
+                )
+                StillMenuItem(
+                    title = "app icons",
+                    subtitle = if (settings.showAppIcons) "on  —  shown in all apps + picker" else "off",
+                    style = StillTypography.SecondaryMenu,
+                    onClick = onToggleShowAppIcons,
+                )
+                StillMenuItem(
+                    title = "font",
+                    subtitle = fontPresetLabel(settings.fontPreset),
+                    style = StillTypography.SecondaryMenu,
+                    onClick = onCycleFontPreset,
+                )
+            }
             Spacer(modifier = Modifier.height(20.dp))
         }
 
         item {
             SectionHeading("slots")
-        }
-
-        items(
-            items = uiState.configuredSlots,
-            key = { resolved -> resolved.slot.index },
-        ) { resolved ->
-            val isFilled = resolved.isLaunchable
-            val title = resolved.displayLabel ?: "slot ${resolved.slot.index + 1}"
-            val titleColor = if (isFilled) StillColors.SoftWhite else StillColors.DimGray
-            val subtitle = when {
-                !resolved.slot.isSet -> "empty"
-                !isFilled -> "missing"
-                resolved.slot.useFriction -> "use intentionally  —  ${resolved.app?.label.orEmpty()}"
-                else -> resolved.app?.label
+            StillSectionCard {
+                uiState.configuredSlots.forEach { resolved ->
+                    val isFilled = resolved.isLaunchable
+                    val title = resolved.displayLabel ?: "slot ${resolved.slot.index + 1}"
+                    val titleColor = if (isFilled) StillColors.SoftWhite else StillColors.DimGray
+                    val appLabel = resolved.app?.label
+                    val subtitle = when {
+                        !resolved.slot.isSet -> "empty"
+                        !isFilled -> "missing"
+                        resolved.slot.useFriction -> "use intentionally  —  ${appLabel.orEmpty()}"
+                        appLabel != null && appLabel != title -> appLabel
+                        else -> null
+                    }
+                    StillMenuItem(
+                        title = title,
+                        subtitle = subtitle,
+                        style = StillTypography.SecondaryMenu,
+                        titleColor = titleColor,
+                        onClick = { onChooseSlot(resolved.slot.index) },
+                    )
+                }
             }
-            StillMenuItem(
-                title = title,
-                subtitle = subtitle,
-                style = StillTypography.SecondaryMenu,
-                titleColor = titleColor,
-                onClick = { onChooseSlot(resolved.slot.index) },
-            )
+            Spacer(modifier = Modifier.height(20.dp))
         }
 
         item {
-            Spacer(modifier = Modifier.height(20.dp))
             SectionHeading("journal")
-            StillMenuItem(
-                title = "intents",
-                style = StillTypography.SecondaryMenu,
-                onClick = onOpenIntents,
-            )
-            Spacer(modifier = Modifier.height(14.dp))
-            StillDivider()
-            Spacer(modifier = Modifier.height(14.dp))
-
+            StillSectionCard {
+                StillMenuItem(
+                    title = "intents",
+                    style = StillTypography.SecondaryMenu,
+                    onClick = onOpenIntents,
+                )
+            }
+            Spacer(modifier = Modifier.height(28.dp))
             StillMenuItem(
                 title = "back",
                 style = StillTypography.SecondaryMenu,
@@ -154,7 +154,7 @@ private fun SectionHeading(text: String) {
         text = text,
         style = StillTypography.Kicker,
         color = StillColors.Gray,
-        modifier = Modifier.padding(bottom = 8.dp),
+        modifier = Modifier.padding(bottom = 10.dp),
     )
 }
 

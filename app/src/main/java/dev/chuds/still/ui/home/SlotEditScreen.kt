@@ -60,11 +60,6 @@ fun SlotEditScreen(
                     color = StillColors.DimGray,
                 )
             }
-            Text(
-                text = app.packageName,
-                style = StillTypography.Caption,
-                color = StillColors.DimGray,
-            )
         }
 
         Spacer(modifier = Modifier.height(20.dp))

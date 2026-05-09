@@ -253,7 +253,6 @@ private fun AppRow(
     if (!showIcon) {
         StillMenuItem(
             title = app.label,
-            subtitle = app.packageName,
             style = StillTypography.SecondaryMenu,
             onClick = onClick,
         )
@@ -292,19 +291,11 @@ private fun AppRow(
             Spacer(modifier = Modifier.size(28.dp))
         }
         Spacer(modifier = Modifier.width(16.dp))
-        Column {
-            Text(
-                text = app.label,
-                style = StillTypography.SecondaryMenu,
-                color = StillColors.SoftWhite,
-            )
-            Text(
-                text = app.packageName,
-                style = StillTypography.Caption,
-                color = StillColors.DimGray,
-                modifier = Modifier.padding(top = 1.dp),
-            )
-        }
+        Text(
+            text = app.label,
+            style = StillTypography.SecondaryMenu,
+            color = StillColors.SoftWhite,
+        )
     }
 }
 
