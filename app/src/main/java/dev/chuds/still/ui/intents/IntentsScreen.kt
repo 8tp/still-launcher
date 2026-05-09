@@ -202,7 +202,7 @@ private fun IntentRow(
         instant.format(timeFormatter).lowercase(Locale.getDefault())
     }
 
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
         Row {
             Text(
                 text = timestampText,
@@ -214,14 +214,15 @@ private fun IntentRow(
                 text = entry.slotLabel.ifBlank { entry.packageName },
                 style = StillTypography.Small,
                 color = StillColors.MutedWhite,
+                modifier = Modifier.weight(1f),
             )
         }
-        Spacer(modifier = Modifier.height(2.dp))
+        Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = entry.intent,
             style = StillTypography.SecondaryMenu,
             color = StillColors.SoftWhite,
-            modifier = Modifier.padding(start = 80.dp),
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }
