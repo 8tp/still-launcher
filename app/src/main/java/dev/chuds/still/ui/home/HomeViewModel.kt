@@ -7,6 +7,7 @@ import dev.chuds.still.data.AppRepository
 import dev.chuds.still.data.ClockFormat
 import dev.chuds.still.data.HomeSlot
 import dev.chuds.still.data.IntentEntry
+import dev.chuds.still.data.FontPreset
 import dev.chuds.still.data.IntentJournalRepository
 import dev.chuds.still.data.LaunchableApp
 import dev.chuds.still.data.LauncherSettings
@@ -162,6 +163,10 @@ class HomeViewModel(
 
     fun setShowAppIcons(show: Boolean) {
         viewModelScope.launch { appRepository.setShowAppIcons(show) }
+    }
+
+    fun setFontPreset(preset: FontPreset) {
+        viewModelScope.launch { appRepository.setFontPreset(preset) }
     }
 
     companion object {

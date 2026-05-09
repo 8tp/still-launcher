@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.chuds.still.data.ClockFormat
+import dev.chuds.still.data.FontPreset
 import dev.chuds.still.data.MAX_SLOT_COUNT
 import dev.chuds.still.ui.components.StillDivider
 import dev.chuds.still.ui.components.StillMenuItem
@@ -29,6 +30,7 @@ fun SettingsScreen(
     onToggleShowDate: () -> Unit,
     onToggleShowHomeHint: () -> Unit,
     onToggleShowAppIcons: () -> Unit,
+    onCycleFontPreset: () -> Unit,
     onOpenIntents: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -89,6 +91,12 @@ fun SettingsScreen(
                 subtitle = if (settings.showAppIcons) "on  —  shown in all apps + picker" else "off",
                 style = StillTypography.SecondaryMenu,
                 onClick = onToggleShowAppIcons,
+            )
+            StillMenuItem(
+                title = "font",
+                subtitle = fontPresetLabel(settings.fontPreset),
+                style = StillTypography.SecondaryMenu,
+                onClick = onCycleFontPreset,
             )
             Spacer(modifier = Modifier.height(20.dp))
         }
@@ -154,4 +162,11 @@ private fun clockFormatLabel(format: ClockFormat): String = when (format) {
     ClockFormat.Auto -> "auto  —  follows system"
     ClockFormat.Hours12 -> "12-hour"
     ClockFormat.Hours24 -> "24-hour"
+}
+
+private fun fontPresetLabel(preset: FontPreset): String = when (preset) {
+    FontPreset.System -> "system  —  platform fallbacks"
+    FontPreset.Editorial -> "editorial  —  cormorant + inter"
+    FontPreset.Terminal -> "terminal  —  ibm plex mono"
+    FontPreset.Grotesk -> "grotesk  —  instrument + space grotesk"
 }

@@ -57,6 +57,9 @@ class AppRepository(
     suspend fun setShowAppIcons(show: Boolean) =
         preferencesRepository.setShowAppIcons(show)
 
+    suspend fun setFontPreset(preset: FontPreset) =
+        preferencesRepository.setFontPreset(preset)
+
     suspend fun populateDefaultSlots(apps: List<LaunchableApp>) {
         val defaults = defaultSlotResolver.resolve(apps)
         if (defaults.isEmpty()) {

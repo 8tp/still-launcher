@@ -2,6 +2,7 @@ package dev.chuds.still
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -12,8 +13,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.chuds.still.data.AppRepository
 import dev.chuds.still.data.ClockFormat
+import dev.chuds.still.data.FontPreset
 import dev.chuds.still.data.IntentJournalRepository
 import dev.chuds.still.data.PreferencesRepository
+import dev.chuds.still.ui.theme.LocalStillTypography
+import dev.chuds.still.ui.theme.stillTypographyFor
 import dev.chuds.still.launcher.AppLauncher
 import dev.chuds.still.launcher.DefaultSlotResolver
 import dev.chuds.still.launcher.PackageScanner
@@ -82,6 +86,11 @@ fun StillApp() {
         }
     }
 
+    val typographyValues = remember(uiState.settings.fontPreset) {
+        stillTypographyFor(uiState.settings.fontPreset)
+    }
+
+    CompositionLocalProvider(LocalStillTypography provides typographyValues) {
     when (val currentRoute = route) {
         StillRoute.Home -> HomeScreen(
             uiState = uiState,
@@ -133,6 +142,15 @@ fun StillApp() {
             },
             onToggleShowAppIcons = {
                 homeViewModel.setShowAppIcons(!uiState.settings.showAppIcons)
+            },
+            onCycleFontPreset = {
+                val next = when (uiState.settings.fontPreset) {
+                    FontPreset.System -> FontPreset.Editorial
+                    FontPreset.Editorial -> FontPreset.Terminal
+                    FontPreset.Terminal -> FontPreset.Grotesk
+                    FontPreset.Grotesk -> FontPreset.System
+                }
+                homeViewModel.setFontPreset(next)
             },
             onOpenIntents = { route = StillRoute.Intents(ReturnTo.Settings) },
             onBack = { route = StillRoute.AllApps },
@@ -215,6 +233,7 @@ fun StillApp() {
             onClear = homeViewModel::clearJournal,
             onBack = { route = currentRoute.returnTo.asRoute() },
         )
+    }
     }
 }
 

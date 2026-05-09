@@ -32,6 +32,11 @@ data class HomeSlot(
 enum class ClockFormat { Auto, Hours12, Hours24 }
 
 /**
+ * Font preset. `System` uses platform fallbacks; the others use bundled OFL faces.
+ */
+enum class FontPreset { System, Editorial, Terminal, Grotesk }
+
+/**
  * Local launcher configuration. The slot list always contains MAX_SLOT_COUNT entries (so we
  * preserve assignments when the user temporarily lowers slotCount); UI surfaces should clip to
  * `slotCount` when rendering.
@@ -43,6 +48,7 @@ data class LauncherSettings(
     val showDate: Boolean = true,
     val showHomeHint: Boolean = true,
     val showAppIcons: Boolean = false,
+    val fontPreset: FontPreset = FontPreset.System,
     val firstLaunchCompleted: Boolean = false,
 ) {
     val visibleSlots: List<HomeSlot>
