@@ -49,6 +49,7 @@ data class LauncherSettings(
     val showHomeHint: Boolean = true,
     val showAppIcons: Boolean = false,
     val fontPreset: FontPreset = FontPreset.System,
+    val hapticsEnabled: Boolean = true,
     val firstLaunchCompleted: Boolean = false,
 ) {
     val visibleSlots: List<HomeSlot>

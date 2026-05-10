@@ -24,6 +24,7 @@ private val SHOW_DATE_KEY = booleanPreferencesKey("show_date")
 private val SHOW_HOME_HINT_KEY = booleanPreferencesKey("show_home_hint")
 private val SHOW_APP_ICONS_KEY = booleanPreferencesKey("show_app_icons")
 private val FONT_PRESET_KEY = stringPreferencesKey("font_preset")
+private val HAPTICS_ENABLED_KEY = booleanPreferencesKey("haptics_enabled")
 private val FIRST_LAUNCH_COMPLETED_KEY = booleanPreferencesKey("first_launch_completed")
 
 /**
@@ -63,6 +64,7 @@ class PreferencesRepository(
                 fontPreset = (preferences[FONT_PRESET_KEY])
                     ?.let { runCatching { FontPreset.valueOf(it) }.getOrNull() }
                     ?: FontPreset.System,
+                hapticsEnabled = preferences[HAPTICS_ENABLED_KEY] ?: true,
                 firstLaunchCompleted = preferences[FIRST_LAUNCH_COMPLETED_KEY] ?: false,
             )
         }
@@ -137,6 +139,12 @@ class PreferencesRepository(
     suspend fun setFontPreset(preset: FontPreset) {
         context.stillPreferencesDataStore.edit { preferences ->
             preferences[FONT_PRESET_KEY] = preset.name
+        }
+    }
+
+    suspend fun setHapticsEnabled(enabled: Boolean) {
+        context.stillPreferencesDataStore.edit { preferences ->
+            preferences[HAPTICS_ENABLED_KEY] = enabled
         }
     }
 

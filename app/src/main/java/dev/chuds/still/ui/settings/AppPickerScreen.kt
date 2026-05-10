@@ -103,6 +103,7 @@ fun AppPickerScreen(
                 StillMenuItem(
                     title = "back",
                     style = StillTypography.SecondaryMenu,
+                    bordered = true,
                     onClick = onBack,
                 )
             }

@@ -16,6 +16,7 @@ import dev.chuds.still.data.ClockFormat
 import dev.chuds.still.data.FontPreset
 import dev.chuds.still.data.IntentJournalRepository
 import dev.chuds.still.data.PreferencesRepository
+import dev.chuds.still.ui.haptics.LocalHapticsEnabled
 import dev.chuds.still.ui.theme.LocalStillTypography
 import dev.chuds.still.ui.theme.stillTypographyFor
 import dev.chuds.still.launcher.AppLauncher
@@ -90,7 +91,10 @@ fun StillApp() {
         stillTypographyFor(uiState.settings.fontPreset)
     }
 
-    CompositionLocalProvider(LocalStillTypography provides typographyValues) {
+    CompositionLocalProvider(
+        LocalStillTypography provides typographyValues,
+        LocalHapticsEnabled provides uiState.settings.hapticsEnabled,
+    ) {
     when (val currentRoute = route) {
         StillRoute.Home -> HomeScreen(
             uiState = uiState,
@@ -151,6 +155,9 @@ fun StillApp() {
                     FontPreset.Grotesk -> FontPreset.System
                 }
                 homeViewModel.setFontPreset(next)
+            },
+            onToggleHaptics = {
+                homeViewModel.setHapticsEnabled(!uiState.settings.hapticsEnabled)
             },
             onOpenIntents = { route = StillRoute.Intents(ReturnTo.Settings) },
             onBack = { route = StillRoute.AllApps },

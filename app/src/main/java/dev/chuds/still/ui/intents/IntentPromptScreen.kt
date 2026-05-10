@@ -99,12 +99,16 @@ fun IntentPromptScreen(
         StillMenuItem(
             title = "open",
             style = StillTypography.SecondaryMenu,
+            bordered = true,
             onClick = { onOpen(text.takeIf { it.isNotBlank() }?.trim()) },
         )
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         StillMenuItem(
             title = "cancel",
             style = StillTypography.SecondaryMenu,
+            bordered = true,
             onClick = onCancel,
         )
     }

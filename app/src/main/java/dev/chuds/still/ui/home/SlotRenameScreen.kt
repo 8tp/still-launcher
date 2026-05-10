@@ -88,19 +88,26 @@ fun SlotRenameScreen(
         StillMenuItem(
             title = "save",
             style = StillTypography.SecondaryMenu,
+            bordered = true,
             onClick = { onSave(text.takeIf { it.isNotBlank() }) },
         )
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         StillMenuItem(
             title = "use app name",
             subtitle = app?.label?.let { "reset to \"$it\"" },
             style = StillTypography.SecondaryMenu,
+            bordered = true,
             onClick = onClearLabel,
         )
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         StillMenuItem(
             title = "cancel",
             style = StillTypography.SecondaryMenu,
+            bordered = true,
             onClick = onBack,
         )
     }

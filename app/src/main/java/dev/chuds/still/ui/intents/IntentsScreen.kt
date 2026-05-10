@@ -155,20 +155,25 @@ fun IntentsScreen(
                 title = "export markdown",
                 style = StillTypography.SecondaryMenu,
                 enabled = entries.isNotEmpty(),
+                bordered = true,
                 onClick = { markdownLauncher.launch("still-intents.md") },
             )
+            Spacer(modifier = Modifier.height(8.dp))
             StillMenuItem(
                 title = "export text",
                 style = StillTypography.SecondaryMenu,
                 enabled = entries.isNotEmpty(),
+                bordered = true,
                 onClick = { textLauncher.launch("still-intents.txt") },
             )
+            Spacer(modifier = Modifier.height(8.dp))
             StillMenuItem(
                 title = if (pendingClear) "tap again to confirm" else "clear",
                 subtitle = if (pendingClear) "this clears every entry" else null,
                 style = StillTypography.SecondaryMenu,
                 titleColor = if (pendingClear) StillColors.SoftWhite else StillColors.MutedWhite,
                 enabled = entries.isNotEmpty(),
+                bordered = true,
                 onClick = {
                     if (pendingClear) {
                         onClear()
@@ -178,9 +183,11 @@ fun IntentsScreen(
                     }
                 },
             )
+            Spacer(modifier = Modifier.height(8.dp))
             StillMenuItem(
                 title = "back",
                 style = StillTypography.SecondaryMenu,
+                bordered = true,
                 onClick = onBack,
             )
         }

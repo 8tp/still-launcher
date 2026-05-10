@@ -60,6 +60,9 @@ class AppRepository(
     suspend fun setFontPreset(preset: FontPreset) =
         preferencesRepository.setFontPreset(preset)
 
+    suspend fun setHapticsEnabled(enabled: Boolean) =
+        preferencesRepository.setHapticsEnabled(enabled)
+
     suspend fun populateDefaultSlots(apps: List<LaunchableApp>) {
         val defaults = defaultSlotResolver.resolve(apps)
         if (defaults.isEmpty()) {

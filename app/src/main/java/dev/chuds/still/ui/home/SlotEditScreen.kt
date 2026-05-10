@@ -101,6 +101,7 @@ fun SlotEditScreen(
         StillMenuItem(
             title = "back",
             style = StillTypography.SecondaryMenu,
+            bordered = true,
             onClick = onBack,
         )
     }

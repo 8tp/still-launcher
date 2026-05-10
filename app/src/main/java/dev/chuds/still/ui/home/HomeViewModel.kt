@@ -169,6 +169,10 @@ class HomeViewModel(
         viewModelScope.launch { appRepository.setFontPreset(preset) }
     }
 
+    fun setHapticsEnabled(enabled: Boolean) {
+        viewModelScope.launch { appRepository.setHapticsEnabled(enabled) }
+    }
+
     companion object {
         fun factory(
             appRepository: AppRepository,

@@ -30,6 +30,7 @@ fun SettingsScreen(
     onToggleShowHomeHint: () -> Unit,
     onToggleShowAppIcons: () -> Unit,
     onCycleFontPreset: () -> Unit,
+    onToggleHaptics: () -> Unit,
     onOpenIntents: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -98,6 +99,12 @@ fun SettingsScreen(
                     style = StillTypography.SecondaryMenu,
                     onClick = onCycleFontPreset,
                 )
+                StillMenuItem(
+                    title = "haptic feedback",
+                    subtitle = if (settings.hapticsEnabled) "on  —  subtle vibration on taps" else "off",
+                    style = StillTypography.SecondaryMenu,
+                    onClick = onToggleHaptics,
+                )
             }
             Spacer(modifier = Modifier.height(20.dp))
         }
@@ -142,6 +149,7 @@ fun SettingsScreen(
             StillMenuItem(
                 title = "back",
                 style = StillTypography.SecondaryMenu,
+                bordered = true,
                 onClick = onBack,
             )
         }
