@@ -33,12 +33,11 @@ class DefaultSlotResolver(
     }
 
     private fun resolveApp(category: DefaultCategory, apps: List<LaunchableApp>): LaunchableApp? {
-        val targetPackage = resolvePackageName(category.intentSpec().toIntent()) ?: return null
-        return apps.firstOrNull { it.packageName == targetPackage }
-            ?: apps.firstOrNull { it.packageName.startsWith(targetPackage) }
+        val target = resolveComponent(category.intentSpec().toIntent()) ?: return null
+        return matchResolvedDefault(target, apps)
     }
 
-    private fun resolvePackageName(intent: Intent): String? {
+    private fun resolveComponent(intent: Intent): ResolvedDefaultComponent? {
         val resolveInfo = try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 packageManager.resolveActivity(intent, PackageManager.ResolveInfoFlags.of(0))
@@ -49,7 +48,10 @@ class DefaultSlotResolver(
         } catch (_: RuntimeException) {
             null
         }
-        return resolveInfo?.activityInfo?.packageName?.takeIf { it.isNotBlank() }
+        val activity = resolveInfo?.activityInfo ?: return null
+        val packageName = activity.packageName.takeIf { it.isNotBlank() } ?: return null
+        val className = activity.name.takeIf { it.isNotBlank() }
+        return ResolvedDefaultComponent(packageName = packageName, className = className)
     }
 
     companion object {
@@ -62,6 +64,23 @@ class DefaultSlotResolver(
             DefaultCategory.Settings,
         )
     }
+}
+
+internal data class ResolvedDefaultComponent(
+    val packageName: String,
+    val className: String?,
+)
+
+internal fun matchResolvedDefault(
+    resolved: ResolvedDefaultComponent,
+    apps: List<LaunchableApp>,
+): LaunchableApp? {
+    resolved.className?.let { resolvedClass ->
+        return apps.firstOrNull {
+            it.packageName == resolved.packageName && it.className == resolvedClass
+        }
+    }
+    return apps.firstOrNull { it.packageName == resolved.packageName }
 }
 
 internal data class DefaultIntentSpec(
