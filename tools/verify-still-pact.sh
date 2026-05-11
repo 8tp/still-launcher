@@ -17,6 +17,15 @@ USE_PERMISSION_TAGS = {
     "uses-permission-sdk-m",
 }
 DYNAMIC_RECEIVER_SUFFIX = ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+EXPECTED_LAUNCHER_QUERY_INTENTS = {
+    ("android.intent.action.MAIN", ("android.intent.category.LAUNCHER",)),
+    ("android.intent.action.DIAL", ()),
+    ("android.intent.action.MAIN", ("android.intent.category.APP_MESSAGING",)),
+    ("android.intent.action.MAIN", ("android.intent.category.APP_BROWSER",)),
+    ("android.media.action.IMAGE_CAPTURE", ()),
+    ("android.intent.action.MAIN", ("android.intent.category.APP_CALENDAR",)),
+    ("android.settings.SETTINGS", ()),
+}
 
 EXPECTED_SOURCE_PERMISSIONS = {
     "still-launcher": set(),
@@ -89,6 +98,39 @@ def manifest_package(path):
     return read_xml(path).attrib.get("package")
 
 
+def manifest_query_intents(path):
+    root_element = read_xml(path)
+    query_intents = []
+    unexpected_query_elements = []
+    queries_elements = [
+        element for element in root_element
+        if local_name(element.tag) == "queries"
+    ]
+    for queries in queries_elements:
+        for element in queries:
+            tag = local_name(element.tag)
+            if tag != "intent":
+                unexpected_query_elements.append(tag)
+                continue
+            actions = []
+            categories = []
+            other_children = []
+            for child in element:
+                child_tag = local_name(child.tag)
+                name = child.attrib.get(ANDROID_NAME) or child.attrib.get("android:name")
+                if child_tag == "action" and name:
+                    actions.append(name)
+                elif child_tag == "category" and name:
+                    categories.append(name)
+                else:
+                    other_children.append(child_tag)
+            if other_children:
+                unexpected_query_elements.extend(other_children)
+            for action in actions:
+                query_intents.append((action, tuple(sorted(categories))))
+    return set(query_intents), unexpected_query_elements
+
+
 def source_manifests(root):
     src = root / "app/src"
     if not src.is_dir():
@@ -99,6 +141,13 @@ def source_manifests(root):
 def format_names(names) -> str:
     ordered = sorted(names)
     return ", ".join(ordered) if ordered else "none"
+
+
+def format_query(query) -> str:
+    action, categories = query
+    if categories:
+        return f"{action} [{', '.join(categories)}]"
+    return action
 
 
 def compare_exact(errors, label, actual, expected):
@@ -156,9 +205,23 @@ def config_files(root):
             yield path
 
 
-def latest_input_mtime(root):
-    paths = source_manifests(root)
+def latest_mtime(paths):
     return max((path.stat().st_mtime for path in paths if path.is_file()), default=0.0)
+
+
+def latest_source_mtime(root):
+    return latest_mtime(source_manifests(root))
+
+
+def latest_config_mtime(root):
+    return latest_mtime(list(config_files(root)))
+
+
+def latest_build_output_mtime(root):
+    outputs = root / "app/build/outputs"
+    if not outputs.is_dir():
+        return 0.0
+    return latest_mtime(path for path in outputs.rglob("*") if path.is_file())
 
 
 def strip_config_comments(path, text):
@@ -205,6 +268,16 @@ if expected_permissions is not None and manifest.is_file():
         duplicates = [item for item, count in Counter(source_permission_names).items() if count > 1]
         if duplicates:
             errors.append(f"{name}: source manifest duplicate permissions: {format_names(duplicates)}")
+        if name == "still-launcher":
+            query_intents, unexpected_query_elements = manifest_query_intents(manifest)
+            missing_queries = EXPECTED_LAUNCHER_QUERY_INTENTS - query_intents
+            unexpected_queries = query_intents - EXPECTED_LAUNCHER_QUERY_INTENTS
+            if missing_queries:
+                errors.append(f"{name}: missing <queries> intents: {format_names(format_query(q) for q in missing_queries)}")
+            if unexpected_queries:
+                errors.append(f"{name}: unexpected <queries> intents: {format_names(format_query(q) for q in unexpected_queries)}")
+            if unexpected_query_elements:
+                errors.append(f"{name}: unexpected <queries> elements: {format_names(unexpected_query_elements)}")
     except ValueError as exc:
         errors.append(f"{name}: {exc}")
 
@@ -247,15 +320,18 @@ if expected_permissions is not None:
     merged_manifest_paths = merged_manifests(root)
     if not merged_manifest_paths:
         errors.append(f"{name}: no merged manifests found; run :app:assembleDebug before verifier")
-    input_mtime = latest_input_mtime(root)
+    source_mtime = latest_source_mtime(root)
+    config_mtime = latest_config_mtime(root)
+    build_output_mtime = latest_build_output_mtime(root)
     stale_merged = [
         str(path.relative_to(root))
         for path in merged_manifest_paths
-        if path.stat().st_mtime < input_mtime
+        if path.stat().st_mtime < source_mtime
+        or (path.stat().st_mtime < config_mtime and build_output_mtime < config_mtime)
     ]
     if stale_merged:
         errors.append(
-            f"{name}: merged manifests are older than source manifests; "
+            f"{name}: merged manifests are older than manifest/build inputs; "
             f"run :app:assembleDebug before verifier: {format_names(stale_merged)}"
         )
     for merged_manifest in merged_manifest_paths:
