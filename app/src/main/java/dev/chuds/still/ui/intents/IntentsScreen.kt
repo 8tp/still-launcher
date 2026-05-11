@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.chuds.still.data.IntentEntry
@@ -61,8 +62,9 @@ fun IntentsScreen(
 
     val zone = remember { ZoneId.systemDefault() }
     val today = remember { LocalDate.now(zone) }
-    val timeFormatter = remember { DateTimeFormatter.ofPattern("h:mma", Locale.getDefault()) }
-    val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d", Locale.getDefault()) }
+    val locale = LocalConfiguration.current.locales[0]
+    val timeFormatter = remember(locale) { DateTimeFormatter.ofPattern("h:mma", locale) }
+    val dateFormatter = remember(locale) { DateTimeFormatter.ofPattern("MMM d", locale) }
 
     val grouped = remember(entries, today) { groupEntries(entries, zone, today) }
 
@@ -139,6 +141,7 @@ fun IntentsScreen(
                     entry = entry,
                     timeFormatter = timeFormatter,
                     dateFormatter = dateFormatter,
+                    locale = locale,
                     zone = zone,
                     showDate = heading == EARLIER_HEADING,
                 )
@@ -199,6 +202,7 @@ private fun IntentRow(
     entry: IntentEntry,
     timeFormatter: DateTimeFormatter,
     dateFormatter: DateTimeFormatter,
+    locale: Locale,
     zone: ZoneId,
     showDate: Boolean,
 ) {
@@ -206,7 +210,7 @@ private fun IntentRow(
     val timestampText = if (showDate) {
         instant.format(dateFormatter)
     } else {
-        instant.format(timeFormatter).lowercase(Locale.getDefault())
+        instant.format(timeFormatter).lowercase(locale)
     }
 
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
