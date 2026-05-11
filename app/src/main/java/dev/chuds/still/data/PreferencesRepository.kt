@@ -3,6 +3,7 @@ package dev.chuds.still.data
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
@@ -42,67 +43,34 @@ class PreferencesRepository(
                 throw exception
             }
         }
-        .map { preferences ->
-            LauncherSettings(
-                slots = (0 until MAX_SLOT_COUNT).map { index ->
-                    HomeSlot(
-                        index = index,
-                        packageName = preferences[packageKey(index)] ?: "",
-                        className = preferences[classKey(index)] ?: "",
-                        customLabel = preferences[labelKey(index)],
-                        useFriction = preferences[frictionKey(index)] ?: false,
-                    )
-                },
-                slotCount = (preferences[SLOT_COUNT_KEY] ?: DEFAULT_SLOT_COUNT)
-                    .coerceIn(1, MAX_SLOT_COUNT),
-                clockFormat = (preferences[CLOCK_FORMAT_KEY])
-                    ?.let { runCatching { ClockFormat.valueOf(it) }.getOrNull() }
-                    ?: ClockFormat.Auto,
-                showDate = preferences[SHOW_DATE_KEY] ?: true,
-                showHomeHint = preferences[SHOW_HOME_HINT_KEY] ?: true,
-                showAppIcons = preferences[SHOW_APP_ICONS_KEY] ?: false,
-                fontPreset = (preferences[FONT_PRESET_KEY])
-                    ?.let { runCatching { FontPreset.valueOf(it) }.getOrNull() }
-                    ?: FontPreset.System,
-                hapticsEnabled = preferences[HAPTICS_ENABLED_KEY] ?: true,
-                firstLaunchCompleted = preferences[FIRST_LAUNCH_COMPLETED_KEY] ?: false,
-            )
-        }
+        .map { preferences -> LauncherPreferencesCodec.readSettings(preferences) }
 
     suspend fun setSlotApp(index: Int, app: LaunchableApp) {
         context.stillPreferencesDataStore.edit { preferences ->
-            preferences[packageKey(index)] = app.packageName
-            preferences[classKey(index)] = app.className
+            LauncherPreferencesCodec.writeSlotApp(
+                preferences = preferences,
+                index = index,
+                packageName = app.packageName,
+                className = app.className,
+            )
         }
     }
 
     suspend fun setSlotLabel(index: Int, label: String?) {
         context.stillPreferencesDataStore.edit { preferences ->
-            val trimmed = label?.trim()
-            if (trimmed.isNullOrEmpty()) {
-                preferences.remove(labelKey(index))
-            } else {
-                preferences[labelKey(index)] = trimmed
-            }
+            LauncherPreferencesCodec.writeSlotLabel(preferences, index, label)
         }
     }
 
     suspend fun setSlotFriction(index: Int, useFriction: Boolean) {
         context.stillPreferencesDataStore.edit { preferences ->
-            if (useFriction) {
-                preferences[frictionKey(index)] = true
-            } else {
-                preferences.remove(frictionKey(index))
-            }
+            LauncherPreferencesCodec.writeSlotFriction(preferences, index, useFriction)
         }
     }
 
     suspend fun clearSlot(index: Int) {
         context.stillPreferencesDataStore.edit { preferences ->
-            preferences.remove(packageKey(index))
-            preferences.remove(classKey(index))
-            preferences.remove(labelKey(index))
-            preferences.remove(frictionKey(index))
+            LauncherPreferencesCodec.clearSlot(preferences, index)
         }
     }
 
@@ -150,12 +118,7 @@ class PreferencesRepository(
 
     suspend fun applyDefaultSlots(slots: List<HomeSlot>) {
         context.stillPreferencesDataStore.edit { preferences ->
-            slots.forEach { slot ->
-                if (slot.isSet) {
-                    preferences[packageKey(slot.index)] = slot.packageName
-                    preferences[classKey(slot.index)] = slot.className
-                }
-            }
+            LauncherPreferencesCodec.writeSlots(preferences, slots)
             preferences[FIRST_LAUNCH_COMPLETED_KEY] = true
         }
     }
@@ -164,6 +127,87 @@ class PreferencesRepository(
         context.stillPreferencesDataStore.edit { preferences ->
             preferences[FIRST_LAUNCH_COMPLETED_KEY] = true
         }
+    }
+}
+
+internal object LauncherPreferencesCodec {
+    fun readSettings(preferences: Preferences): LauncherSettings =
+        LauncherSettings(
+            slots = (0 until MAX_SLOT_COUNT).map { index ->
+                HomeSlot(
+                    index = index,
+                    packageName = preferences[packageKey(index)] ?: "",
+                    className = preferences[classKey(index)] ?: "",
+                    customLabel = preferences[labelKey(index)],
+                    useFriction = preferences[frictionKey(index)] ?: false,
+                )
+            },
+            slotCount = (preferences[SLOT_COUNT_KEY] ?: DEFAULT_SLOT_COUNT)
+                .coerceIn(1, MAX_SLOT_COUNT),
+            clockFormat = (preferences[CLOCK_FORMAT_KEY])
+                ?.let { runCatching { ClockFormat.valueOf(it) }.getOrNull() }
+                ?: ClockFormat.Auto,
+            showDate = preferences[SHOW_DATE_KEY] ?: true,
+            showHomeHint = preferences[SHOW_HOME_HINT_KEY] ?: true,
+            showAppIcons = preferences[SHOW_APP_ICONS_KEY] ?: false,
+            fontPreset = (preferences[FONT_PRESET_KEY])
+                ?.let { runCatching { FontPreset.valueOf(it) }.getOrNull() }
+                ?: FontPreset.System,
+            hapticsEnabled = preferences[HAPTICS_ENABLED_KEY] ?: true,
+            firstLaunchCompleted = preferences[FIRST_LAUNCH_COMPLETED_KEY] ?: false,
+        )
+
+    fun writeSlots(preferences: MutablePreferences, slots: List<HomeSlot>) {
+        slots.forEach { slot ->
+            if (slot.isSet) {
+                writeSlotApp(
+                    preferences = preferences,
+                    index = slot.index,
+                    packageName = slot.packageName,
+                    className = slot.className,
+                )
+            } else {
+                preferences.remove(packageKey(slot.index))
+                preferences.remove(classKey(slot.index))
+            }
+
+            writeSlotLabel(preferences, slot.index, slot.customLabel)
+            writeSlotFriction(preferences, slot.index, slot.useFriction)
+        }
+    }
+
+    fun writeSlotApp(
+        preferences: MutablePreferences,
+        index: Int,
+        packageName: String,
+        className: String,
+    ) {
+        preferences[packageKey(index)] = packageName
+        preferences[classKey(index)] = className
+    }
+
+    fun writeSlotLabel(preferences: MutablePreferences, index: Int, label: String?) {
+        val trimmed = label?.trim()
+        if (trimmed.isNullOrEmpty()) {
+            preferences.remove(labelKey(index))
+        } else {
+            preferences[labelKey(index)] = trimmed
+        }
+    }
+
+    fun writeSlotFriction(preferences: MutablePreferences, index: Int, useFriction: Boolean) {
+        if (useFriction) {
+            preferences[frictionKey(index)] = true
+        } else {
+            preferences.remove(frictionKey(index))
+        }
+    }
+
+    fun clearSlot(preferences: MutablePreferences, index: Int) {
+        preferences.remove(packageKey(index))
+        preferences.remove(classKey(index))
+        preferences.remove(labelKey(index))
+        preferences.remove(frictionKey(index))
     }
 
     private fun packageKey(index: Int): Preferences.Key<String> =

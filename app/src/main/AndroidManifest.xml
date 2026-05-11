@@ -5,7 +5,8 @@
     Important privacy notes:
     - There is intentionally no INTERNET permission.
     - There is intentionally no QUERY_ALL_PACKAGES permission.
-    - The <queries> block scopes PackageManager visibility to launchable apps only.
+    - The <queries> block scopes PackageManager visibility to launcher/default-intent
+      shapes only.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 

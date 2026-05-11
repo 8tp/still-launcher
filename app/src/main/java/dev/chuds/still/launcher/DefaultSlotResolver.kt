@@ -2,7 +2,6 @@ package dev.chuds.still.launcher
 
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.provider.Settings as AndroidSettings
@@ -34,12 +33,11 @@ class DefaultSlotResolver(
     }
 
     private fun resolveApp(category: DefaultCategory, apps: List<LaunchableApp>): LaunchableApp? {
-        val targetPackage = resolvePackageName(category.intent()) ?: return null
-        return apps.firstOrNull { it.packageName == targetPackage }
-            ?: apps.firstOrNull { it.packageName.startsWith(targetPackage) }
+        val target = resolveComponent(category.intentSpec().toIntent()) ?: return null
+        return matchResolvedDefault(target, apps)
     }
 
-    private fun resolvePackageName(intent: Intent): String? {
+    private fun resolveComponent(intent: Intent): ResolvedDefaultComponent? {
         val resolveInfo = try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 packageManager.resolveActivity(intent, PackageManager.ResolveInfoFlags.of(0))
@@ -50,27 +48,10 @@ class DefaultSlotResolver(
         } catch (_: RuntimeException) {
             null
         }
-        return resolveInfo?.activityInfo?.packageName?.takeIf { it.isNotBlank() }
-    }
-
-    private enum class DefaultCategory {
-        Phone,
-        Messages,
-        Browser,
-        Camera,
-        Calendar,
-        Settings;
-
-        fun intent(): Intent = when (this) {
-            Phone -> Intent(Intent.ACTION_DIAL)
-            Messages -> Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MESSAGING)
-            Browser -> Intent(Intent.ACTION_MAIN)
-                .addCategory(Intent.CATEGORY_APP_BROWSER)
-                .also { it.data = Uri.parse("https://") }
-            Camera -> Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-            Calendar -> Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALENDAR)
-            Settings -> Intent(AndroidSettings.ACTION_SETTINGS)
-        }
+        val activity = resolveInfo?.activityInfo ?: return null
+        val packageName = activity.packageName.takeIf { it.isNotBlank() } ?: return null
+        val className = activity.name.takeIf { it.isNotBlank() }
+        return ResolvedDefaultComponent(packageName = packageName, className = className)
     }
 
     companion object {
@@ -82,6 +63,49 @@ class DefaultSlotResolver(
             DefaultCategory.Calendar,
             DefaultCategory.Settings,
         )
+    }
+}
+
+internal data class ResolvedDefaultComponent(
+    val packageName: String,
+    val className: String?,
+)
+
+internal fun matchResolvedDefault(
+    resolved: ResolvedDefaultComponent,
+    apps: List<LaunchableApp>,
+): LaunchableApp? {
+    val packageMatches = apps.filter { it.packageName == resolved.packageName }
+    resolved.className?.let { resolvedClass ->
+        packageMatches.firstOrNull { it.className == resolvedClass }?.let { return it }
+    }
+    return packageMatches.singleOrNull()
+}
+
+internal data class DefaultIntentSpec(
+    val action: String,
+    val category: String? = null,
+) {
+    fun toIntent(): Intent = Intent(action).apply {
+        category?.let { addCategory(it) }
+    }
+}
+
+internal enum class DefaultCategory {
+    Phone,
+    Messages,
+    Browser,
+    Camera,
+    Calendar,
+    Settings;
+
+    fun intentSpec(): DefaultIntentSpec = when (this) {
+        Phone -> DefaultIntentSpec(Intent.ACTION_DIAL)
+        Messages -> DefaultIntentSpec(Intent.ACTION_MAIN, Intent.CATEGORY_APP_MESSAGING)
+        Browser -> DefaultIntentSpec(Intent.ACTION_MAIN, Intent.CATEGORY_APP_BROWSER)
+        Camera -> DefaultIntentSpec(MediaStore.ACTION_IMAGE_CAPTURE)
+        Calendar -> DefaultIntentSpec(Intent.ACTION_MAIN, Intent.CATEGORY_APP_CALENDAR)
+        Settings -> DefaultIntentSpec(AndroidSettings.ACTION_SETTINGS)
     }
 }
 

@@ -1,0 +1,30 @@
+name: build
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: build and test
+        run: |
+          if ./gradlew --no-daemon :app:tasks --all | grep -q "testDebugUnitTest"; then
+            ./gradlew --no-daemon :app:assembleDebug :app:testDebugUnitTest :app:lintDebug --stacktrace
+          else
+            ./gradlew --no-daemon :app:assembleDebug :app:lintDebug --stacktrace
+          fi
+
+      - name: verify still pact
+        run: ./tools/verify-still-pact.sh

@@ -4,6 +4,8 @@
 
 #### A quiet launcher for Android.
 
+part of the [still](STILL.md) family. the pact governs every line of code in this repo.
+
 <br>
 
 <img src="docs/screenshots/home.png" width="180" alt="Still home — clock, date, and a vertical list of user-defined slots">&nbsp;<img src="docs/screenshots/intent-prompt.png" width="180" alt="Intent prompt — Use this intentionally. what for?">&nbsp;<img src="docs/screenshots/intents.png" width="180" alt="Intents journal — reverse-chronological list of typed intents">&nbsp;<img src="docs/screenshots/settings.png" width="180" alt="Still settings — launcher prefs, slots, and journal">
@@ -41,7 +43,7 @@ The journal lives entirely on-device in a separate Preferences DataStore (`still
 ## What Still refuses to do
 
 - No `INTERNET` permission.
-- No `QUERY_ALL_PACKAGES`. Package visibility is scoped via `<queries>` to apps that expose a launchable activity.
+- No `QUERY_ALL_PACKAGES`. Package visibility is scoped to launcher/default-intent `<queries>` only.
 - No analytics, no telemetry, no Firebase, no Google Play Services, no ads.
 - No cloud backup of settings or journal — `data_extraction_rules.xml` excludes every domain.
 - No icons on the home. No widgets. No default app drawer. No search. No notification listener. No accessibility service. No `+` buttons. No branding.
@@ -50,7 +52,7 @@ The journal lives entirely on-device in a separate Preferences DataStore (`still
 
 | File | What it guarantees |
 | --- | --- |
-| `app/src/main/AndroidManifest.xml` | No permissions declared; `<queries>` limits package visibility to launchable apps |
+| `app/src/main/AndroidManifest.xml` | No permissions declared; `<queries>` is limited to launcher/default-intent visibility, never broad package enumeration |
 | `app/src/main/res/xml/data_extraction_rules.xml` | Excludes every sharedpref / file / database domain from cloud backup and device transfer |
 | `app/build.gradle.kts` | Dependencies only on AndroidX, Compose, and DataStore — no Firebase, no GMS, no analytics SDK |
 

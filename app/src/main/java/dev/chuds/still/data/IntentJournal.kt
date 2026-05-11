@@ -48,13 +48,14 @@ class IntentJournalRepository(
                 throw exception
             }
         }
-        .map { preferences -> decode(preferences[JOURNAL_KEY]) }
+        .map { preferences -> IntentJournalCodec.decode(preferences[JOURNAL_KEY]) }
 
     suspend fun add(entry: IntentEntry) {
         context.intentJournalDataStore.edit { preferences ->
-            val current = decode(preferences[JOURNAL_KEY])
-            val updated = (listOf(entry) + current).take(MAX_JOURNAL_ENTRIES)
-            preferences[JOURNAL_KEY] = encode(updated)
+            preferences[JOURNAL_KEY] = IntentJournalCodec.append(
+                serialized = preferences[JOURNAL_KEY],
+                entry = entry,
+            )
         }
     }
 
@@ -63,8 +64,10 @@ class IntentJournalRepository(
             preferences.remove(JOURNAL_KEY)
         }
     }
+}
 
-    private fun decode(serialized: String?): List<IntentEntry> {
+internal object IntentJournalCodec {
+    fun decode(serialized: String?): List<IntentEntry> {
         if (serialized.isNullOrBlank()) return emptyList()
         return try {
             val array = JSONArray(serialized)
@@ -86,7 +89,7 @@ class IntentJournalRepository(
         }
     }
 
-    private fun encode(entries: List<IntentEntry>): String {
+    fun encode(entries: List<IntentEntry>): String {
         val array = JSONArray()
         entries.forEach { entry ->
             array.put(
@@ -100,4 +103,11 @@ class IntentJournalRepository(
         }
         return array.toString()
     }
+
+    fun append(serialized: String?, entry: IntentEntry): String {
+        val updated = (listOf(entry) + decode(serialized)).take(MAX_JOURNAL_ENTRIES)
+        return encode(updated)
+    }
+
+    fun clearSerialized(): String = encode(emptyList())
 }

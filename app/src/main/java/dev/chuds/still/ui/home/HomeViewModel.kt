@@ -79,7 +79,7 @@ class HomeViewModel(
         viewModelScope.launch {
             val initialSettings = appRepository.settings.first()
             if (!initialSettings.firstLaunchCompleted) {
-                val apps = appRepository.launchableApps.first { it.isNotEmpty() }
+                val apps = appRepository.launchableApps.first()
                 appRepository.populateDefaultSlots(apps)
             }
         }
