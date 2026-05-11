@@ -75,12 +75,11 @@ internal fun matchResolvedDefault(
     resolved: ResolvedDefaultComponent,
     apps: List<LaunchableApp>,
 ): LaunchableApp? {
+    val packageMatches = apps.filter { it.packageName == resolved.packageName }
     resolved.className?.let { resolvedClass ->
-        return apps.firstOrNull {
-            it.packageName == resolved.packageName && it.className == resolvedClass
-        }
+        packageMatches.firstOrNull { it.className == resolvedClass }?.let { return it }
     }
-    return apps.firstOrNull { it.packageName == resolved.packageName }
+    return packageMatches.singleOrNull()
 }
 
 internal data class DefaultIntentSpec(

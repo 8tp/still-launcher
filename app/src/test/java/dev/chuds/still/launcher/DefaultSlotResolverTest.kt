@@ -48,7 +48,7 @@ class DefaultSlotResolverTest {
     }
 
     @Test
-    fun resolvedDefaultSkipsPackageWhenClassIsNotLaunchable() {
+    fun resolvedDefaultFallsBackToOnlyLaunchableAppInPackage() {
         val picked = matchResolvedDefault(
             resolved = ResolvedDefaultComponent(
                 packageName = "com.example.browser",
@@ -59,6 +59,30 @@ class DefaultSlotResolverTest {
                     label = "browser",
                     packageName = "com.example.browser",
                     className = "com.example.browser.MainActivity",
+                ),
+            ),
+        )
+
+        assertEquals("com.example.browser.MainActivity", picked?.className)
+    }
+
+    @Test
+    fun resolvedDefaultSkipsPackageWhenClassIsNotLaunchableAndPackageHasMultipleApps() {
+        val picked = matchResolvedDefault(
+            resolved = ResolvedDefaultComponent(
+                packageName = "com.example.browser",
+                className = "com.example.browser.HiddenActivity",
+            ),
+            apps = listOf(
+                LaunchableApp(
+                    label = "browser",
+                    packageName = "com.example.browser",
+                    className = "com.example.browser.MainActivity",
+                ),
+                LaunchableApp(
+                    label = "browser settings",
+                    packageName = "com.example.browser",
+                    className = "com.example.browser.SettingsActivity",
                 ),
             ),
         )
