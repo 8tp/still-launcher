@@ -128,7 +128,7 @@ def manifest_query_intents(path):
                 unexpected_query_elements.extend(other_children)
             for action in actions:
                 query_intents.append((action, tuple(sorted(categories))))
-    return set(query_intents), unexpected_query_elements
+    return set(query_intents), unexpected_query_elements, bool(queries_elements)
 
 
 def source_manifests(root):
@@ -151,7 +151,7 @@ def format_query(query) -> str:
 
 
 def compare_launcher_queries(errors, label, path):
-    query_intents, unexpected_query_elements = manifest_query_intents(path)
+    query_intents, unexpected_query_elements, _ = manifest_query_intents(path)
     missing_queries = EXPECTED_LAUNCHER_QUERY_INTENTS - query_intents
     unexpected_queries = query_intents - EXPECTED_LAUNCHER_QUERY_INTENTS
     if missing_queries:
@@ -332,8 +332,8 @@ if expected_permissions is not None and manifest.is_file():
                     f"{name}: {rel} unexpected permission declarations: "
                     f"{format_names(variant_declarations)}"
                 )
-            variant_query_intents, variant_query_elements = manifest_query_intents(source_manifest)
-            if variant_query_intents or variant_query_elements:
+            _, _, has_variant_queries = manifest_query_intents(source_manifest)
+            if has_variant_queries:
                 compare_launcher_queries(errors, f"{name}: {rel} source manifest", source_manifest)
         except ValueError as exc:
             errors.append(f"{name}: {exc}")
