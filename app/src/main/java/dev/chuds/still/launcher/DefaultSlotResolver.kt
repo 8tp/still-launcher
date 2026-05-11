@@ -33,7 +33,7 @@ class DefaultSlotResolver(
     }
 
     private fun resolveApp(category: DefaultCategory, apps: List<LaunchableApp>): LaunchableApp? {
-        val targetPackage = resolvePackageName(category.intent()) ?: return null
+        val targetPackage = resolvePackageName(category.intentSpec().toIntent()) ?: return null
         return apps.firstOrNull { it.packageName == targetPackage }
             ?: apps.firstOrNull { it.packageName.startsWith(targetPackage) }
     }
@@ -52,24 +52,6 @@ class DefaultSlotResolver(
         return resolveInfo?.activityInfo?.packageName?.takeIf { it.isNotBlank() }
     }
 
-    private enum class DefaultCategory {
-        Phone,
-        Messages,
-        Browser,
-        Camera,
-        Calendar,
-        Settings;
-
-        fun intent(): Intent = when (this) {
-            Phone -> Intent(Intent.ACTION_DIAL)
-            Messages -> Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MESSAGING)
-            Browser -> Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_BROWSER)
-            Camera -> Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-            Calendar -> Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALENDAR)
-            Settings -> Intent(AndroidSettings.ACTION_SETTINGS)
-        }
-    }
-
     companion object {
         private val DEFAULT_CATEGORIES = listOf(
             DefaultCategory.Phone,
@@ -79,6 +61,33 @@ class DefaultSlotResolver(
             DefaultCategory.Calendar,
             DefaultCategory.Settings,
         )
+    }
+}
+
+internal data class DefaultIntentSpec(
+    val action: String,
+    val category: String? = null,
+) {
+    fun toIntent(): Intent = Intent(action).apply {
+        category?.let { addCategory(it) }
+    }
+}
+
+internal enum class DefaultCategory {
+    Phone,
+    Messages,
+    Browser,
+    Camera,
+    Calendar,
+    Settings;
+
+    fun intentSpec(): DefaultIntentSpec = when (this) {
+        Phone -> DefaultIntentSpec(Intent.ACTION_DIAL)
+        Messages -> DefaultIntentSpec(Intent.ACTION_MAIN, Intent.CATEGORY_APP_MESSAGING)
+        Browser -> DefaultIntentSpec(Intent.ACTION_MAIN, Intent.CATEGORY_APP_BROWSER)
+        Camera -> DefaultIntentSpec(MediaStore.ACTION_IMAGE_CAPTURE)
+        Calendar -> DefaultIntentSpec(Intent.ACTION_MAIN, Intent.CATEGORY_APP_CALENDAR)
+        Settings -> DefaultIntentSpec(AndroidSettings.ACTION_SETTINGS)
     }
 }
 
