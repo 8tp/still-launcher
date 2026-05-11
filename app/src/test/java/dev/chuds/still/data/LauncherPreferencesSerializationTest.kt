@@ -50,4 +50,32 @@ class LauncherPreferencesSerializationTest {
         assertNull(third.customLabel)
         assertFalse(third.useFriction)
     }
+
+    @Test
+    fun repository_style_slot_writers_are_read_by_the_same_codec() {
+        val preferences = mutablePreferencesOf()
+
+        LauncherPreferencesCodec.writeSlotApp(
+            preferences = preferences,
+            index = 4,
+            packageName = "dev.chuds.sms",
+            className = "dev.chuds.sms.MainActivity",
+        )
+        LauncherPreferencesCodec.writeSlotLabel(preferences, 4, " sms ")
+        LauncherPreferencesCodec.writeSlotFriction(preferences, 4, true)
+
+        val slot = LauncherPreferencesCodec.readSettings(preferences).slotAt(4)
+
+        assertEquals("dev.chuds.sms", slot.packageName)
+        assertEquals("dev.chuds.sms.MainActivity", slot.className)
+        assertEquals("sms", slot.customLabel)
+        assertTrue(slot.useFriction)
+
+        LauncherPreferencesCodec.clearSlot(preferences, 4)
+
+        val cleared = LauncherPreferencesCodec.readSettings(preferences).slotAt(4)
+        assertFalse(cleared.isSet)
+        assertNull(cleared.customLabel)
+        assertFalse(cleared.useFriction)
+    }
 }

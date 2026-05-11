@@ -47,38 +47,30 @@ class PreferencesRepository(
 
     suspend fun setSlotApp(index: Int, app: LaunchableApp) {
         context.stillPreferencesDataStore.edit { preferences ->
-            preferences[packageKey(index)] = app.packageName
-            preferences[classKey(index)] = app.className
+            LauncherPreferencesCodec.writeSlotApp(
+                preferences = preferences,
+                index = index,
+                packageName = app.packageName,
+                className = app.className,
+            )
         }
     }
 
     suspend fun setSlotLabel(index: Int, label: String?) {
         context.stillPreferencesDataStore.edit { preferences ->
-            val trimmed = label?.trim()
-            if (trimmed.isNullOrEmpty()) {
-                preferences.remove(labelKey(index))
-            } else {
-                preferences[labelKey(index)] = trimmed
-            }
+            LauncherPreferencesCodec.writeSlotLabel(preferences, index, label)
         }
     }
 
     suspend fun setSlotFriction(index: Int, useFriction: Boolean) {
         context.stillPreferencesDataStore.edit { preferences ->
-            if (useFriction) {
-                preferences[frictionKey(index)] = true
-            } else {
-                preferences.remove(frictionKey(index))
-            }
+            LauncherPreferencesCodec.writeSlotFriction(preferences, index, useFriction)
         }
     }
 
     suspend fun clearSlot(index: Int) {
         context.stillPreferencesDataStore.edit { preferences ->
-            preferences.remove(packageKey(index))
-            preferences.remove(classKey(index))
-            preferences.remove(labelKey(index))
-            preferences.remove(frictionKey(index))
+            LauncherPreferencesCodec.clearSlot(preferences, index)
         }
     }
 
@@ -136,18 +128,6 @@ class PreferencesRepository(
             preferences[FIRST_LAUNCH_COMPLETED_KEY] = true
         }
     }
-
-    private fun packageKey(index: Int): Preferences.Key<String> =
-        stringPreferencesKey("slot_${index}_package")
-
-    private fun classKey(index: Int): Preferences.Key<String> =
-        stringPreferencesKey("slot_${index}_class")
-
-    private fun labelKey(index: Int): Preferences.Key<String> =
-        stringPreferencesKey("slot_${index}_label")
-
-    private fun frictionKey(index: Int): Preferences.Key<Boolean> =
-        booleanPreferencesKey("slot_${index}_friction")
 }
 
 internal object LauncherPreferencesCodec {
@@ -180,26 +160,54 @@ internal object LauncherPreferencesCodec {
     fun writeSlots(preferences: MutablePreferences, slots: List<HomeSlot>) {
         slots.forEach { slot ->
             if (slot.isSet) {
-                preferences[packageKey(slot.index)] = slot.packageName
-                preferences[classKey(slot.index)] = slot.className
+                writeSlotApp(
+                    preferences = preferences,
+                    index = slot.index,
+                    packageName = slot.packageName,
+                    className = slot.className,
+                )
             } else {
                 preferences.remove(packageKey(slot.index))
                 preferences.remove(classKey(slot.index))
             }
 
-            val label = slot.customLabel?.trim()
-            if (label.isNullOrEmpty()) {
-                preferences.remove(labelKey(slot.index))
-            } else {
-                preferences[labelKey(slot.index)] = label
-            }
-
-            if (slot.useFriction) {
-                preferences[frictionKey(slot.index)] = true
-            } else {
-                preferences.remove(frictionKey(slot.index))
-            }
+            writeSlotLabel(preferences, slot.index, slot.customLabel)
+            writeSlotFriction(preferences, slot.index, slot.useFriction)
         }
+    }
+
+    fun writeSlotApp(
+        preferences: MutablePreferences,
+        index: Int,
+        packageName: String,
+        className: String,
+    ) {
+        preferences[packageKey(index)] = packageName
+        preferences[classKey(index)] = className
+    }
+
+    fun writeSlotLabel(preferences: MutablePreferences, index: Int, label: String?) {
+        val trimmed = label?.trim()
+        if (trimmed.isNullOrEmpty()) {
+            preferences.remove(labelKey(index))
+        } else {
+            preferences[labelKey(index)] = trimmed
+        }
+    }
+
+    fun writeSlotFriction(preferences: MutablePreferences, index: Int, useFriction: Boolean) {
+        if (useFriction) {
+            preferences[frictionKey(index)] = true
+        } else {
+            preferences.remove(frictionKey(index))
+        }
+    }
+
+    fun clearSlot(preferences: MutablePreferences, index: Int) {
+        preferences.remove(packageKey(index))
+        preferences.remove(classKey(index))
+        preferences.remove(labelKey(index))
+        preferences.remove(frictionKey(index))
     }
 
     private fun packageKey(index: Int): Preferences.Key<String> =
