@@ -310,7 +310,7 @@ private fun EmptyAppsHint(query: String) {
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Still scopes package visibility to launchable apps via <queries> — no QUERY_ALL_PACKAGES. Install an app and refresh.",
+            text = "Still scopes package visibility to launcher and default-intent queries; no QUERY_ALL_PACKAGES. Install an app and refresh.",
             style = StillTypography.Caption,
             color = StillColors.DimGray,
         )

@@ -156,6 +156,11 @@ def config_files(root):
             yield path
 
 
+def latest_input_mtime(root):
+    paths = source_manifests(root)
+    return max((path.stat().st_mtime for path in paths if path.is_file()), default=0.0)
+
+
 def strip_config_comments(path, text):
     text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
     marker = "#" if path.name.endswith(".toml") else "//"
@@ -242,6 +247,17 @@ if expected_permissions is not None:
     merged_manifest_paths = merged_manifests(root)
     if not merged_manifest_paths:
         errors.append(f"{name}: no merged manifests found; run :app:assembleDebug before verifier")
+    input_mtime = latest_input_mtime(root)
+    stale_merged = [
+        str(path.relative_to(root))
+        for path in merged_manifest_paths
+        if path.stat().st_mtime < input_mtime
+    ]
+    if stale_merged:
+        errors.append(
+            f"{name}: merged manifests are older than source manifests; "
+            f"run :app:assembleDebug before verifier: {format_names(stale_merged)}"
+        )
     for merged_manifest in merged_manifest_paths:
         rel = merged_manifest.relative_to(root)
         try:

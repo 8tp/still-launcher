@@ -43,7 +43,7 @@ The journal lives entirely on-device in a separate Preferences DataStore (`still
 ## What Still refuses to do
 
 - No `INTERNET` permission.
-- No `QUERY_ALL_PACKAGES`. Package visibility is scoped via `<queries>` to apps that expose a launchable activity.
+- No `QUERY_ALL_PACKAGES`. Package visibility is scoped to launcher/default-intent `<queries>` only.
 - No analytics, no telemetry, no Firebase, no Google Play Services, no ads.
 - No cloud backup of settings or journal — `data_extraction_rules.xml` excludes every domain.
 - No icons on the home. No widgets. No default app drawer. No search. No notification listener. No accessibility service. No `+` buttons. No branding.
@@ -52,7 +52,7 @@ The journal lives entirely on-device in a separate Preferences DataStore (`still
 
 | File | What it guarantees |
 | --- | --- |
-| `app/src/main/AndroidManifest.xml` | No permissions declared; `<queries>` limits package visibility to launchable apps |
+| `app/src/main/AndroidManifest.xml` | No permissions declared; `<queries>` is limited to launcher/default-intent visibility, never broad package enumeration |
 | `app/src/main/res/xml/data_extraction_rules.xml` | Excludes every sharedpref / file / database domain from cloud backup and device transfer |
 | `app/build.gradle.kts` | Dependencies only on AndroidX, Compose, and DataStore — no Firebase, no GMS, no analytics SDK |
 
