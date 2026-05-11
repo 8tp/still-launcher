@@ -52,6 +52,38 @@ class LauncherPreferencesSerializationTest {
     }
 
     @Test
+    fun write_slots_preserves_existing_label_and_friction_for_unset_slots() {
+        val preferences = mutablePreferencesOf()
+
+        LauncherPreferencesCodec.writeSlotApp(
+            preferences = preferences,
+            index = 1,
+            packageName = "dev.chuds.kept",
+            className = "dev.chuds.kept.MainActivity",
+        )
+        LauncherPreferencesCodec.writeSlotLabel(preferences, 1, "kept")
+        LauncherPreferencesCodec.writeSlotFriction(preferences, 1, true)
+
+        LauncherPreferencesCodec.writeSlots(
+            preferences,
+            listOf(
+                HomeSlot(
+                    index = 0,
+                    packageName = "dev.chuds.new",
+                    className = "dev.chuds.new.MainActivity",
+                ),
+                HomeSlot(index = 1),
+            ),
+        )
+
+        val settings = LauncherPreferencesCodec.readSettings(preferences)
+        val preserved = settings.slotAt(1)
+        assertEquals("dev.chuds.kept", preserved.packageName)
+        assertEquals("kept", preserved.customLabel)
+        assertTrue(preserved.useFriction)
+    }
+
+    @Test
     fun repository_style_slot_writers_are_read_by_the_same_codec() {
         val preferences = mutablePreferencesOf()
 

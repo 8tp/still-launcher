@@ -159,18 +159,13 @@ internal object LauncherPreferencesCodec {
 
     fun writeSlots(preferences: MutablePreferences, slots: List<HomeSlot>) {
         slots.forEach { slot ->
-            if (slot.isSet) {
-                writeSlotApp(
-                    preferences = preferences,
-                    index = slot.index,
-                    packageName = slot.packageName,
-                    className = slot.className,
-                )
-            } else {
-                preferences.remove(packageKey(slot.index))
-                preferences.remove(classKey(slot.index))
-            }
-
+            if (!slot.isSet) return@forEach
+            writeSlotApp(
+                preferences = preferences,
+                index = slot.index,
+                packageName = slot.packageName,
+                className = slot.className,
+            )
             writeSlotLabel(preferences, slot.index, slot.customLabel)
             writeSlotFriction(preferences, slot.index, slot.useFriction)
         }
