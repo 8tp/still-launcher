@@ -4,6 +4,8 @@
 
 #### A quiet launcher for Android.
 
+part of the [still](../STILL.md) family. the pact governs every line of code in this repo.
+
 <br>
 
 <img src="docs/screenshots/home.png" width="180" alt="Still home — clock, date, and a vertical list of user-defined slots">&nbsp;<img src="docs/screenshots/intent-prompt.png" width="180" alt="Intent prompt — Use this intentionally. what for?">&nbsp;<img src="docs/screenshots/intents.png" width="180" alt="Intents journal — reverse-chronological list of typed intents">&nbsp;<img src="docs/screenshots/settings.png" width="180" alt="Still settings — launcher prefs, slots, and journal">
