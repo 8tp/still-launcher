@@ -150,6 +150,18 @@ def format_query(query) -> str:
     return action
 
 
+def compare_launcher_queries(errors, label, path):
+    query_intents, unexpected_query_elements = manifest_query_intents(path)
+    missing_queries = EXPECTED_LAUNCHER_QUERY_INTENTS - query_intents
+    unexpected_queries = query_intents - EXPECTED_LAUNCHER_QUERY_INTENTS
+    if missing_queries:
+        errors.append(f"{label}: missing <queries> intents: {format_names(format_query(q) for q in missing_queries)}")
+    if unexpected_queries:
+        errors.append(f"{label}: unexpected <queries> intents: {format_names(format_query(q) for q in unexpected_queries)}")
+    if unexpected_query_elements:
+        errors.append(f"{label}: unexpected <queries> elements: {format_names(unexpected_query_elements)}")
+
+
 def compare_exact(errors, label, actual, expected):
     missing = expected - actual
     unexpected = actual - expected
@@ -217,11 +229,37 @@ def latest_config_mtime(root):
     return latest_mtime(list(config_files(root)))
 
 
-def latest_build_output_mtime(root):
+def merged_manifest_variant(root, path):
+    parts = path.relative_to(root).parts
+    for marker in ("merged_manifest", "merged_manifests", "packaged_manifests"):
+        if marker in parts:
+            index = parts.index(marker)
+            if index + 1 < len(parts):
+                return parts[index + 1]
+    return None
+
+
+def latest_variant_build_output_mtime(root, variant):
     outputs = root / "app/build/outputs"
-    if not outputs.is_dir():
+    if not outputs.is_dir() or not variant:
         return 0.0
-    return latest_mtime(path for path in outputs.rglob("*") if path.is_file())
+    variant_lower = variant.lower()
+    return latest_mtime(
+        path
+        for path in outputs.rglob("*")
+        if path.is_file()
+        and any(part.lower() == variant_lower for part in path.relative_to(outputs).parts)
+    )
+
+
+def merged_manifest_is_stale(root, path, source_mtime, config_mtime):
+    manifest_mtime = path.stat().st_mtime
+    if manifest_mtime < source_mtime:
+        return True
+    if manifest_mtime >= config_mtime:
+        return False
+    variant = merged_manifest_variant(root, path)
+    return latest_variant_build_output_mtime(root, variant) < config_mtime
 
 
 def strip_config_comments(path, text):
@@ -269,15 +307,7 @@ if expected_permissions is not None and manifest.is_file():
         if duplicates:
             errors.append(f"{name}: source manifest duplicate permissions: {format_names(duplicates)}")
         if name == "still-launcher":
-            query_intents, unexpected_query_elements = manifest_query_intents(manifest)
-            missing_queries = EXPECTED_LAUNCHER_QUERY_INTENTS - query_intents
-            unexpected_queries = query_intents - EXPECTED_LAUNCHER_QUERY_INTENTS
-            if missing_queries:
-                errors.append(f"{name}: missing <queries> intents: {format_names(format_query(q) for q in missing_queries)}")
-            if unexpected_queries:
-                errors.append(f"{name}: unexpected <queries> intents: {format_names(format_query(q) for q in unexpected_queries)}")
-            if unexpected_query_elements:
-                errors.append(f"{name}: unexpected <queries> elements: {format_names(unexpected_query_elements)}")
+            compare_launcher_queries(errors, f"{name}: source manifest", manifest)
     except ValueError as exc:
         errors.append(f"{name}: {exc}")
 
@@ -322,12 +352,10 @@ if expected_permissions is not None:
         errors.append(f"{name}: no merged manifests found; run :app:assembleDebug before verifier")
     source_mtime = latest_source_mtime(root)
     config_mtime = latest_config_mtime(root)
-    build_output_mtime = latest_build_output_mtime(root)
     stale_merged = [
         str(path.relative_to(root))
         for path in merged_manifest_paths
-        if path.stat().st_mtime < source_mtime
-        or (path.stat().st_mtime < config_mtime and build_output_mtime < config_mtime)
+        if merged_manifest_is_stale(root, path, source_mtime, config_mtime)
     ]
     if stale_merged:
         errors.append(
@@ -362,6 +390,8 @@ if expected_permissions is not None:
                     f"{name}: {rel} unexpected merged permission declarations: "
                     f"{format_names(unexpected_declarations)}"
                 )
+            if name == "still-launcher":
+                compare_launcher_queries(errors, f"{name}: {rel} merged manifest", merged_manifest)
         except ValueError as exc:
             errors.append(f"{name}: {exc}")
 
