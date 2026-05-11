@@ -21,9 +21,9 @@ jobs:
       - name: build and test
         run: |
           if ./gradlew --no-daemon :app:tasks --all | grep -q "testDebugUnitTest"; then
-            ./gradlew --no-daemon :app:assembleDebug :app:testDebugUnitTest --stacktrace
+            ./gradlew --no-daemon :app:assembleDebug :app:testDebugUnitTest :app:lintDebug --stacktrace
           else
-            ./gradlew --no-daemon :app:assembleDebug --stacktrace
+            ./gradlew --no-daemon :app:assembleDebug :app:lintDebug --stacktrace
           fi
 
       - name: verify still pact
