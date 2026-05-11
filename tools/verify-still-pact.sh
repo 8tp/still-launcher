@@ -277,7 +277,7 @@ def merged_manifests(root):
     for path in intermediates.rglob("AndroidManifest.xml"):
         rel = path.relative_to(root)
         parts = rel.parts
-        if any("merged" in part for part in parts):
+        if any("merged" in part for part in parts) or "packaged_manifests" in parts:
             manifests.append(path)
     return sorted(set(manifests))
 
@@ -332,6 +332,9 @@ if expected_permissions is not None and manifest.is_file():
                     f"{name}: {rel} unexpected permission declarations: "
                     f"{format_names(variant_declarations)}"
                 )
+            variant_query_intents, variant_query_elements = manifest_query_intents(source_manifest)
+            if variant_query_intents or variant_query_elements:
+                compare_launcher_queries(errors, f"{name}: {rel} source manifest", source_manifest)
         except ValueError as exc:
             errors.append(f"{name}: {exc}")
 
