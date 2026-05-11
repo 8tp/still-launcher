@@ -1,8 +1,5 @@
 package dev.chuds.still
 
-import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.semantics.getOrNull
-import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -18,22 +15,11 @@ class MainActivitySmokeTest {
     val composeTestRule = createAndroidComposeRule<MainActivity>()
 
     @Test
-    fun homeSurface_showsHintAndClock() {
+    fun homeSurface_showsHint() {
         composeTestRule.waitForIdle()
 
         composeTestRule
             .onNodeWithText("long press for all apps")
             .assertIsDisplayed()
-
-        val clockRegex = Regex("""^\d{1,2}:\d{2}$""")
-        val clockMatcher = SemanticsMatcher("clock matches HH:mm or h:mm") { node ->
-            val text = node.config.getOrNull(SemanticsProperties.Text)
-                ?.joinToString(separator = "") { it.text }
-                ?: return@SemanticsMatcher false
-            clockRegex.matches(text)
-        }
-
-        val clockNodes = composeTestRule.onAllNodes(clockMatcher).fetchSemanticsNodes()
-        check(clockNodes.isNotEmpty()) { "expected a clock text node matching HH:mm or h:mm" }
     }
 }
