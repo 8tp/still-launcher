@@ -2,7 +2,6 @@ package dev.chuds.still.launcher
 
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.provider.Settings as AndroidSettings
@@ -64,9 +63,7 @@ class DefaultSlotResolver(
         fun intent(): Intent = when (this) {
             Phone -> Intent(Intent.ACTION_DIAL)
             Messages -> Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MESSAGING)
-            Browser -> Intent(Intent.ACTION_MAIN)
-                .addCategory(Intent.CATEGORY_APP_BROWSER)
-                .also { it.data = Uri.parse("https://") }
+            Browser -> Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_BROWSER)
             Camera -> Intent(MediaStore.ACTION_IMAGE_CAPTURE)
             Calendar -> Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALENDAR)
             Settings -> Intent(AndroidSettings.ACTION_SETTINGS)
