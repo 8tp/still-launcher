@@ -26,10 +26,5 @@ jobs:
             ./gradlew --no-daemon :app:assembleDebug --stacktrace
           fi
 
-      - name: verify still pact when available
-        run: |
-          if [ -x ../tools/verify-permissions.sh ]; then
-            ../tools/verify-permissions.sh
-          else
-            echo "workspace verifier not present in this per-repo checkout; skipping"
-          fi
+      - name: verify still pact
+        run: ./tools/verify-still-pact.sh
