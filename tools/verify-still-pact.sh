@@ -239,7 +239,10 @@ if manifest.is_file() and readme.is_file():
         )
 
 if expected_permissions is not None:
-    for merged_manifest in merged_manifests(root):
+    merged_manifest_paths = merged_manifests(root)
+    if not merged_manifest_paths:
+        errors.append(f"{name}: no merged manifests found; run :app:assembleDebug before verifier")
+    for merged_manifest in merged_manifest_paths:
         rel = merged_manifest.relative_to(root)
         try:
             package_name = manifest_package(merged_manifest)
