@@ -6,32 +6,47 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 python3 - "$root" <<'PY'
 import re
 import sys
+import xml.etree.ElementTree as ET
+from collections import Counter
 from pathlib import Path
 
-root = Path(sys.argv[1])
-name = root.name
-manifest = root / "app/src/main/AndroidManifest.xml"
-gradle = root / "app/build.gradle.kts"
-readme = root / "README.md"
+ANDROID_NAME = "{http://schemas.android.com/apk/res/android}name"
+USE_PERMISSION_TAGS = {
+    "uses-permission",
+    "uses-permission-sdk-23",
+    "uses-permission-sdk-m",
+}
+DYNAMIC_RECEIVER_SUFFIX = ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
 
-manifest_forbidden = [
-    "android.permission.INTERNET",
-    "ACCESS_NETWORK_STATE",
-    "ACCESS_WIFI_STATE",
-    "QUERY_ALL_PACKAGES",
-    "READ_EXTERNAL_STORAGE",
-    "WRITE_EXTERNAL_STORAGE",
-    "MANAGE_EXTERNAL_STORAGE",
-]
-gradle_forbidden = [
+EXPECTED_SOURCE_PERMISSIONS = {
+    "still-launcher": set(),
+    "still-notes": set(),
+    "still-cal": {
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+    },
+    "still-clock": {
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.USE_EXACT_ALARM",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.USE_FULL_SCREEN_INTENT",
+        "android.permission.WAKE_LOCK",
+        "android.permission.VIBRATE",
+    },
+}
+FORBIDDEN_SDK_TOKENS = [
     "com.google.firebase",
     "com.google.android.gms",
+    "google-services",
+    "firebase",
     "crashlytics",
     "analytics",
     "mixpanel",
     "amplitude",
 ]
-number_words = {
+NUMBER_WORDS = {
     "no": 0,
     "zero": 0,
     "one": 1,
@@ -45,18 +60,59 @@ number_words = {
     "nine": 9,
     "ten": 10,
 }
+SKIP_CONFIG_DIRS = {".git", ".gradle", "build"}
 
 
-def strip_xml_comments(text: str) -> str:
-    return re.sub(r"<!--.*?-->", "", text, flags=re.S)
+def local_name(tag):
+    return tag.rsplit("}", 1)[-1] if tag.startswith("{") else tag
 
 
-def strip_kotlin_comments(text: str) -> str:
-    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
-    return "\n".join(line.split("//", 1)[0] for line in text.splitlines())
+def read_xml(path):
+    try:
+        return ET.fromstring(path.read_text(encoding="utf-8"))
+    except ET.ParseError as exc:
+        raise ValueError(f"{path}: invalid XML: {exc}") from exc
 
 
-def readme_permission_count(path: Path):
+def manifest_names(path, tag_names):
+    root_element = read_xml(path)
+    names = []
+    for element in root_element.iter():
+        if local_name(element.tag) in tag_names:
+            name = element.attrib.get(ANDROID_NAME) or element.attrib.get("android:name")
+            if name:
+                names.append(name)
+    return names
+
+
+def manifest_package(path):
+    return read_xml(path).attrib.get("package")
+
+
+def format_names(names) -> str:
+    ordered = sorted(names)
+    return ", ".join(ordered) if ordered else "none"
+
+
+def compare_exact(errors, label, actual, expected):
+    missing = expected - actual
+    unexpected = actual - expected
+    if missing:
+        errors.append(f"{label}: missing permissions: {format_names(missing)}")
+    if unexpected:
+        errors.append(f"{label}: unexpected permissions: {format_names(unexpected)}")
+
+
+def is_app_dynamic_receiver_permission(permission, package_name):
+    if not permission.endswith(DYNAMIC_RECEIVER_SUFFIX):
+        return False
+    prefix = permission[: -len(DYNAMIC_RECEIVER_SUFFIX)]
+    if package_name:
+        return prefix == package_name
+    return bool(re.fullmatch(r"[A-Za-z][A-Za-z0-9_.]*", prefix))
+
+
+def readme_permission_count(path):
     for raw_line in path.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip().lower()
         if "permissions" not in line:
@@ -72,36 +128,123 @@ def readme_permission_count(path: Path):
         )
         if match:
             token = match.group(1)
-            return int(token) if token.isdigit() else number_words[token]
+            return int(token) if token.isdigit() else NUMBER_WORDS[token]
     return None
 
 
+def config_files(root):
+    for path in root.rglob("*"):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(root)
+        if any(part in SKIP_CONFIG_DIRS for part in rel.parts[:-1]):
+            continue
+        name = path.name
+        if (
+            name.endswith(".gradle")
+            or name.endswith(".gradle.kts")
+            or name in {"settings.gradle", "settings.gradle.kts"}
+            or name.endswith(".versions.toml")
+        ):
+            yield path
+
+
+def strip_config_comments(path, text):
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+    marker = "#" if path.name.endswith(".toml") else "//"
+    return "\n".join(line.split(marker, 1)[0] for line in text.splitlines())
+
+
+def merged_debug_manifests(root):
+    intermediates = root / "app/build/intermediates"
+    if not intermediates.is_dir():
+        return []
+
+    manifests = []
+    for path in intermediates.rglob("AndroidManifest.xml"):
+        rel = path.relative_to(root)
+        parts = rel.parts
+        if "debug" in parts and any("merged" in part for part in parts):
+            manifests.append(path)
+    return sorted(set(manifests))
+
+
+root = Path(sys.argv[1])
+name = root.name
+manifest = root / "app/src/main/AndroidManifest.xml"
+readme = root / "README.md"
+expected_permissions = EXPECTED_SOURCE_PERMISSIONS.get(name)
+
 errors = []
+if expected_permissions is None:
+    errors.append(f"{name}: no expected permission allowlist configured")
+
 for required in (manifest, readme):
     if not required.is_file():
         errors.append(f"{name}: missing {required.relative_to(root)}")
 
-if manifest.is_file():
-    manifest_text = strip_xml_comments(manifest.read_text(encoding="utf-8"))
-    for token in manifest_forbidden:
-        if token in manifest_text:
-            errors.append(f"{name}: forbidden manifest token: {token}")
+source_permission_names = []
+if expected_permissions is not None and manifest.is_file():
+    try:
+        source_permission_names = manifest_names(manifest, USE_PERMISSION_TAGS)
+        source_permissions = set(source_permission_names)
+        compare_exact(errors, f"{name}: source manifest", source_permissions, expected_permissions)
 
-    manifest_count = len(re.findall(r"<uses-permission\b", manifest_text))
-    stated_count = readme_permission_count(readme) if readme.is_file() else None
+        duplicates = [item for item, count in Counter(source_permission_names).items() if count > 1]
+        if duplicates:
+            errors.append(f"{name}: source manifest duplicate permissions: {format_names(duplicates)}")
+    except ValueError as exc:
+        errors.append(f"{name}: {exc}")
+
+if manifest.is_file() and readme.is_file():
+    stated_count = readme_permission_count(readme)
+    manifest_count = len(source_permission_names)
     if stated_count is None:
         errors.append(f"{name}: could not find stated README permission count")
     elif stated_count != manifest_count:
         errors.append(
             f"{name}: README states {stated_count} permissions, "
-            f"manifest declares {manifest_count}"
+            f"source manifest declares {manifest_count}"
         )
 
-if gradle.is_file():
-    gradle_text = strip_kotlin_comments(gradle.read_text(encoding="utf-8"))
-    for token in gradle_forbidden:
-        if token in gradle_text:
-            errors.append(f"{name}: forbidden gradle token: {token}")
+if expected_permissions is not None:
+    for merged_manifest in merged_debug_manifests(root):
+        rel = merged_manifest.relative_to(root)
+        try:
+            package_name = manifest_package(merged_manifest)
+            merged_uses = set(manifest_names(merged_manifest, USE_PERMISSION_TAGS))
+            merged_without_dynamic = {
+                permission
+                for permission in merged_uses
+                if not is_app_dynamic_receiver_permission(permission, package_name)
+            }
+            compare_exact(
+                errors,
+                f"{name}: {rel} merged uses-permission",
+                merged_without_dynamic,
+                expected_permissions,
+            )
+
+            permission_declarations = set(manifest_names(merged_manifest, {"permission"}))
+            unexpected_declarations = {
+                permission
+                for permission in permission_declarations
+                if not is_app_dynamic_receiver_permission(permission, package_name)
+            }
+            if unexpected_declarations:
+                errors.append(
+                    f"{name}: {rel} unexpected merged permission declarations: "
+                    f"{format_names(unexpected_declarations)}"
+                )
+        except ValueError as exc:
+            errors.append(f"{name}: {exc}")
+
+for config in config_files(root):
+    rel = config.relative_to(root)
+    text = strip_config_comments(config, config.read_text(encoding="utf-8")).lower()
+    for token in FORBIDDEN_SDK_TOKENS:
+        if token.lower() in text:
+            errors.append(f"{name}: forbidden Gradle/settings/catalog token '{token}' in {rel}")
 
 if errors:
     for error in errors:
