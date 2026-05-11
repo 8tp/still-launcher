@@ -15,7 +15,6 @@ import dev.chuds.still.launcher.AppLauncher
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -77,11 +76,7 @@ class HomeViewModel(
 
     init {
         viewModelScope.launch {
-            val initialSettings = appRepository.settings.first()
-            if (!initialSettings.firstLaunchCompleted) {
-                val apps = appRepository.launchableApps.first()
-                appRepository.populateDefaultSlots(apps)
-            }
+            appRepository.seedFirstLaunchIfNeeded()
         }
     }
 

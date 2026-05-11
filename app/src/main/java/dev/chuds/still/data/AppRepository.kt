@@ -6,11 +6,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 
 /**
  * Combines installed-app scanning with the user's slot configuration and launcher prefs.
  *
- * On first launch, [populateDefaultSlots] seeds slots from [DefaultSlotResolver]. Once the
+ * On first launch, [seedFirstLaunchIfNeeded] seeds slots from [DefaultSlotResolver]. Once the
  * first-launch flag flips, the resolver is never run again.
  */
 class AppRepository(
@@ -63,12 +64,35 @@ class AppRepository(
     suspend fun setHapticsEnabled(enabled: Boolean) =
         preferencesRepository.setHapticsEnabled(enabled)
 
-    suspend fun populateDefaultSlots(apps: List<LaunchableApp>) {
-        val defaults = defaultSlotResolver.resolve(apps)
-        if (defaults.isEmpty()) {
-            preferencesRepository.markFirstLaunchCompleted()
-        } else {
-            preferencesRepository.applyDefaultSlots(defaults)
-        }
+    suspend fun seedFirstLaunchIfNeeded() {
+        seedFirstLaunchDefaults(
+            settings = settings,
+            apps = launchableApps,
+            resolve = defaultSlotResolver::resolve,
+            applyDefaults = preferencesRepository::applyDefaultSlots,
+            markComplete = preferencesRepository::markFirstLaunchCompleted,
+        )
+    }
+}
+
+/**
+ * Awaits a non-empty launchable-app list before deciding whether to seed defaults. An initial
+ * empty emission (early invocation, restricted profile, or a swallowed scan exception) re-arms
+ * until a real scan arrives, so the first-launch flag never latches on a transient empty state.
+ */
+internal suspend fun seedFirstLaunchDefaults(
+    settings: Flow<LauncherSettings>,
+    apps: Flow<List<LaunchableApp>>,
+    resolve: (List<LaunchableApp>) -> List<HomeSlot>,
+    applyDefaults: suspend (List<HomeSlot>) -> Unit,
+    markComplete: suspend () -> Unit,
+) {
+    if (settings.first().firstLaunchCompleted) return
+    val readyApps = apps.first { it.isNotEmpty() }
+    val defaults = resolve(readyApps)
+    if (defaults.isNotEmpty()) {
+        applyDefaults(defaults)
+    } else {
+        markComplete()
     }
 }
