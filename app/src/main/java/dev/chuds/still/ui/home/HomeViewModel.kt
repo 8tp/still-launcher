@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import dev.chuds.still.data.AppRepository
 import dev.chuds.still.data.ClockFormat
+import dev.chuds.still.data.DrawerFrictionMode
 import dev.chuds.still.data.HomeSlot
 import dev.chuds.still.data.IntentEntry
 import dev.chuds.still.data.FontPreset
@@ -97,6 +98,26 @@ class HomeViewModel(
     fun launchApp(app: LaunchableApp): Boolean = appLauncher.launch(app)
 
     /**
+     * Launch a drawer-selected app, journaling the typed intent first if non-blank.
+     */
+    fun launchAppWithIntent(app: LaunchableApp, intent: String?): Boolean {
+        val trimmed = intent?.trim().orEmpty()
+        if (trimmed.isNotEmpty()) {
+            viewModelScope.launch {
+                intentJournalRepository.add(
+                    IntentEntry(
+                        timestamp = System.currentTimeMillis(),
+                        slotLabel = app.label,
+                        packageName = app.packageName,
+                        intent = trimmed,
+                    ),
+                )
+            }
+        }
+        return appLauncher.launch(app)
+    }
+
+    /**
      * Launch the slot's app, journaling the typed intent first if non-blank.
      */
     fun launchSlotWithIntent(index: Int, intent: String?): Boolean {
@@ -166,6 +187,19 @@ class HomeViewModel(
 
     fun setHapticsEnabled(enabled: Boolean) {
         viewModelScope.launch { appRepository.setHapticsEnabled(enabled) }
+    }
+
+    fun cycleDrawerFrictionMode() {
+        val next = when (uiState.value.settings.drawerFrictionMode) {
+            DrawerFrictionMode.Off -> DrawerFrictionMode.Allowlist
+            DrawerFrictionMode.Allowlist -> DrawerFrictionMode.Blocklist
+            DrawerFrictionMode.Blocklist -> DrawerFrictionMode.Off
+        }
+        viewModelScope.launch { appRepository.setDrawerFrictionMode(next) }
+    }
+
+    fun toggleDrawerFrictionException(key: String) {
+        viewModelScope.launch { appRepository.toggleDrawerFrictionException(key) }
     }
 
     companion object {

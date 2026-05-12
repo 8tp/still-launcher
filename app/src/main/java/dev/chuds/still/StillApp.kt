@@ -23,6 +23,7 @@ import dev.chuds.still.launcher.AppLauncher
 import dev.chuds.still.launcher.DefaultSlotResolver
 import dev.chuds.still.launcher.PackageScanner
 import dev.chuds.still.launcher.SystemSettingsLocator
+import dev.chuds.still.launcher.requiresDrawerFriction
 import dev.chuds.still.ui.home.HomeScreen
 import dev.chuds.still.ui.home.HomeViewModel
 import dev.chuds.still.ui.home.SlotEditScreen
@@ -31,6 +32,7 @@ import dev.chuds.still.ui.intents.IntentPromptScreen
 import dev.chuds.still.ui.intents.IntentsScreen
 import dev.chuds.still.ui.settings.AllAppsScreen
 import dev.chuds.still.ui.settings.AppPickerScreen
+import dev.chuds.still.ui.settings.DrawerExceptionsScreen
 import dev.chuds.still.ui.settings.SettingsScreen
 
 /**
@@ -111,8 +113,16 @@ fun StillApp() {
             apps = uiState.apps,
             showAppIcons = uiState.settings.showAppIcons,
             onLaunchApp = { app ->
-                homeViewModel.launchApp(app)
-                route = StillRoute.Home
+                if (requiresDrawerFriction(app, uiState.settings)) {
+                    route = StillRoute.IntentPromptApp(
+                        packageName = app.packageName,
+                        className = app.className,
+                        label = app.label,
+                    )
+                } else {
+                    homeViewModel.launchApp(app)
+                    route = StillRoute.Home
+                }
             },
             onOpenStillSettings = { route = StillRoute.Settings },
             onRefreshApps = homeViewModel::refreshApps,
@@ -158,6 +168,10 @@ fun StillApp() {
             },
             onToggleHaptics = {
                 homeViewModel.setHapticsEnabled(!uiState.settings.hapticsEnabled)
+            },
+            onCycleDrawerFrictionMode = homeViewModel::cycleDrawerFrictionMode,
+            onOpenDrawerExceptions = {
+                route = StillRoute.DrawerExceptions(ReturnTo.Settings)
             },
             onOpenIntents = { route = StillRoute.Intents(ReturnTo.Settings) },
             onBack = { route = StillRoute.AllApps },
@@ -235,6 +249,32 @@ fun StillApp() {
             )
         }
 
+        is StillRoute.IntentPromptApp -> {
+            val app = uiState.apps.firstOrNull {
+                it.packageName == currentRoute.packageName && it.className == currentRoute.className
+            }
+            if (app == null) {
+                route = StillRoute.AllApps
+            } else {
+                IntentPromptScreen(
+                    slotLabel = currentRoute.label,
+                    onOpen = { intent ->
+                        homeViewModel.launchAppWithIntent(app, intent)
+                        route = StillRoute.Home
+                    },
+                    onCancel = { route = StillRoute.Home },
+                )
+            }
+        }
+
+        is StillRoute.DrawerExceptions -> DrawerExceptionsScreen(
+            apps = uiState.apps,
+            mode = uiState.settings.drawerFrictionMode,
+            exceptions = uiState.settings.drawerFrictionExceptions,
+            onToggleException = homeViewModel::toggleDrawerFrictionException,
+            onBack = { route = currentRoute.returnTo.asRoute() },
+        )
+
         is StillRoute.Intents -> IntentsScreen(
             entries = intentEntries,
             onClear = homeViewModel::clearJournal,
@@ -261,6 +301,12 @@ private sealed interface StillRoute {
     data class SlotEdit(val slotIndex: Int, val returnTo: ReturnTo) : StillRoute
     data class SlotRename(val slotIndex: Int, val returnTo: ReturnTo) : StillRoute
     data class IntentPrompt(val slotIndex: Int) : StillRoute
+    data class IntentPromptApp(
+        val packageName: String,
+        val className: String,
+        val label: String,
+    ) : StillRoute
+    data class DrawerExceptions(val returnTo: ReturnTo) : StillRoute
     data class Intents(val returnTo: ReturnTo) : StillRoute
 }
 
@@ -272,5 +318,7 @@ private fun StillRoute.backTarget(): StillRoute = when (this) {
     is StillRoute.SlotEdit -> returnTo.asRoute()
     is StillRoute.SlotRename -> StillRoute.SlotEdit(slotIndex, returnTo)
     is StillRoute.IntentPrompt -> StillRoute.Home
+    is StillRoute.IntentPromptApp -> StillRoute.AllApps
+    is StillRoute.DrawerExceptions -> returnTo.asRoute()
     is StillRoute.Intents -> returnTo.asRoute()
 }
