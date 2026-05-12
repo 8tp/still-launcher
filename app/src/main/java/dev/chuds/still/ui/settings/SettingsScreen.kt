@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.chuds.still.data.ClockFormat
+import dev.chuds.still.data.DrawerFrictionMode
 import dev.chuds.still.data.FontPreset
 import dev.chuds.still.data.MAX_SLOT_COUNT
 import dev.chuds.still.ui.components.StillMenuItem
@@ -31,6 +32,8 @@ fun SettingsScreen(
     onToggleShowAppIcons: () -> Unit,
     onCycleFontPreset: () -> Unit,
     onToggleHaptics: () -> Unit,
+    onCycleDrawerFrictionMode: () -> Unit,
+    onOpenDrawerExceptions: () -> Unit,
     onOpenIntents: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -105,6 +108,18 @@ fun SettingsScreen(
                     style = StillTypography.SecondaryMenu,
                     onClick = onToggleHaptics,
                 )
+                StillMenuItem(
+                    title = "all apps intent prompt",
+                    subtitle = drawerFrictionModeLabel(settings.drawerFrictionMode),
+                    style = StillTypography.SecondaryMenu,
+                    onClick = onCycleDrawerFrictionMode,
+                )
+                StillMenuItem(
+                    title = "configure app exceptions",
+                    subtitle = "${settings.drawerFrictionExceptions.size} apps",
+                    style = StillTypography.SecondaryMenu,
+                    onClick = onOpenDrawerExceptions,
+                )
             }
             Spacer(modifier = Modifier.height(20.dp))
         }
@@ -177,4 +192,10 @@ private fun fontPresetLabel(preset: FontPreset): String = when (preset) {
     FontPreset.Editorial -> "editorial  —  cormorant + inter"
     FontPreset.Terminal -> "terminal  —  ibm plex mono"
     FontPreset.Grotesk -> "grotesk  —  instrument + space grotesk"
+}
+
+private fun drawerFrictionModeLabel(mode: DrawerFrictionMode): String = when (mode) {
+    DrawerFrictionMode.Off -> "off  —  drawer launches go straight through"
+    DrawerFrictionMode.Allowlist -> "allowlist  —  prompt unless app is excepted"
+    DrawerFrictionMode.Blocklist -> "blocklist  —  prompt only for excepted apps"
 }
