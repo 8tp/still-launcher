@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import java.io.IOException
 import kotlinx.coroutines.flow.Flow
@@ -27,6 +28,8 @@ private val SHOW_APP_ICONS_KEY = booleanPreferencesKey("show_app_icons")
 private val FONT_PRESET_KEY = stringPreferencesKey("font_preset")
 private val HAPTICS_ENABLED_KEY = booleanPreferencesKey("haptics_enabled")
 private val FIRST_LAUNCH_COMPLETED_KEY = booleanPreferencesKey("first_launch_completed")
+private val DRAWER_FRICTION_MODE_KEY = stringPreferencesKey("drawer_friction_mode")
+private val DRAWER_FRICTION_EXCEPTIONS_KEY = stringSetPreferencesKey("drawer_friction_exceptions")
 
 /**
  * Reads and writes local slot state and launcher-wide preferences. No remote sync, no telemetry,
@@ -116,6 +119,34 @@ class PreferencesRepository(
         }
     }
 
+    suspend fun setDrawerFrictionMode(mode: DrawerFrictionMode) {
+        context.stillPreferencesDataStore.edit { preferences ->
+            preferences[DRAWER_FRICTION_MODE_KEY] = mode.name
+        }
+    }
+
+    suspend fun setDrawerFrictionExceptions(exceptions: Set<String>) {
+        context.stillPreferencesDataStore.edit { preferences ->
+            if (exceptions.isEmpty()) {
+                preferences.remove(DRAWER_FRICTION_EXCEPTIONS_KEY)
+            } else {
+                preferences[DRAWER_FRICTION_EXCEPTIONS_KEY] = exceptions
+            }
+        }
+    }
+
+    suspend fun toggleDrawerFrictionException(key: String) {
+        context.stillPreferencesDataStore.edit { preferences ->
+            val current = preferences[DRAWER_FRICTION_EXCEPTIONS_KEY].orEmpty()
+            val updated = if (key in current) current - key else current + key
+            if (updated.isEmpty()) {
+                preferences.remove(DRAWER_FRICTION_EXCEPTIONS_KEY)
+            } else {
+                preferences[DRAWER_FRICTION_EXCEPTIONS_KEY] = updated
+            }
+        }
+    }
+
     suspend fun applyDefaultSlots(slots: List<HomeSlot>) {
         context.stillPreferencesDataStore.edit { preferences ->
             LauncherPreferencesCodec.writeSlots(preferences, slots)
@@ -155,6 +186,10 @@ internal object LauncherPreferencesCodec {
                 ?: FontPreset.System,
             hapticsEnabled = preferences[HAPTICS_ENABLED_KEY] ?: true,
             firstLaunchCompleted = preferences[FIRST_LAUNCH_COMPLETED_KEY] ?: false,
+            drawerFrictionMode = (preferences[DRAWER_FRICTION_MODE_KEY])
+                ?.let { runCatching { DrawerFrictionMode.valueOf(it) }.getOrNull() }
+                ?: DrawerFrictionMode.Allowlist,
+            drawerFrictionExceptions = preferences[DRAWER_FRICTION_EXCEPTIONS_KEY].orEmpty(),
         )
 
     fun writeSlots(preferences: MutablePreferences, slots: List<HomeSlot>) {

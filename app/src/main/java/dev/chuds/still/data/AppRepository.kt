@@ -64,6 +64,12 @@ class AppRepository(
     suspend fun setHapticsEnabled(enabled: Boolean) =
         preferencesRepository.setHapticsEnabled(enabled)
 
+    suspend fun setDrawerFrictionMode(mode: DrawerFrictionMode) =
+        preferencesRepository.setDrawerFrictionMode(mode)
+
+    suspend fun toggleDrawerFrictionException(key: String) =
+        preferencesRepository.toggleDrawerFrictionException(key)
+
     suspend fun seedFirstLaunchIfNeeded() {
         seedFirstLaunchDefaults(
             settings = settings,

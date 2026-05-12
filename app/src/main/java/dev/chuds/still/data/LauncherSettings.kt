@@ -37,6 +37,14 @@ enum class ClockFormat { Auto, Hours12, Hours24 }
 enum class FontPreset { System, Editorial, Terminal, Grotesk }
 
 /**
+ * How drawer launches are gated by the intent prompt.
+ *
+ * `Allowlist` is "intentful by default; allowlist these few to skip the prompt".
+ * `Blocklist` is "frictionless by default; force the prompt only on these".
+ */
+enum class DrawerFrictionMode { Off, Allowlist, Blocklist }
+
+/**
  * Local launcher configuration. The slot list always contains MAX_SLOT_COUNT entries (so we
  * preserve assignments when the user temporarily lowers slotCount); UI surfaces should clip to
  * `slotCount` when rendering.
@@ -51,6 +59,8 @@ data class LauncherSettings(
     val fontPreset: FontPreset = FontPreset.System,
     val hapticsEnabled: Boolean = true,
     val firstLaunchCompleted: Boolean = false,
+    val drawerFrictionMode: DrawerFrictionMode = DrawerFrictionMode.Allowlist,
+    val drawerFrictionExceptions: Set<String> = emptySet(),
 ) {
     val visibleSlots: List<HomeSlot>
         get() = slots.take(slotCount.coerceIn(1, MAX_SLOT_COUNT))

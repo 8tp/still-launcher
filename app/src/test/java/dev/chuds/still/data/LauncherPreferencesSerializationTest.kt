@@ -1,6 +1,8 @@
 package dev.chuds.still.data
 
 import androidx.datastore.preferences.core.mutablePreferencesOf
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -109,5 +111,41 @@ class LauncherPreferencesSerializationTest {
         assertFalse(cleared.isSet)
         assertNull(cleared.customLabel)
         assertFalse(cleared.useFriction)
+    }
+
+    @Test
+    fun drawer_friction_mode_and_exceptions_round_trip() {
+        val preferences = mutablePreferencesOf()
+        preferences[stringPreferencesKey("drawer_friction_mode")] = DrawerFrictionMode.Blocklist.name
+        preferences[stringSetPreferencesKey("drawer_friction_exceptions")] =
+            setOf("dev.chuds.notes/dev.chuds.notes.MainActivity", "dev.chuds.clock/")
+
+        val settings = LauncherPreferencesCodec.readSettings(preferences)
+
+        assertEquals(DrawerFrictionMode.Blocklist, settings.drawerFrictionMode)
+        assertEquals(
+            setOf("dev.chuds.notes/dev.chuds.notes.MainActivity", "dev.chuds.clock/"),
+            settings.drawerFrictionExceptions,
+        )
+    }
+
+    @Test
+    fun drawer_friction_defaults_to_allowlist_with_empty_exceptions_when_keys_absent() {
+        val preferences = mutablePreferencesOf()
+
+        val settings = LauncherPreferencesCodec.readSettings(preferences)
+
+        assertEquals(DrawerFrictionMode.Allowlist, settings.drawerFrictionMode)
+        assertTrue(settings.drawerFrictionExceptions.isEmpty())
+    }
+
+    @Test
+    fun drawer_friction_mode_falls_back_to_allowlist_on_unknown_value() {
+        val preferences = mutablePreferencesOf()
+        preferences[stringPreferencesKey("drawer_friction_mode")] = "bogus"
+
+        val settings = LauncherPreferencesCodec.readSettings(preferences)
+
+        assertEquals(DrawerFrictionMode.Allowlist, settings.drawerFrictionMode)
     }
 }
